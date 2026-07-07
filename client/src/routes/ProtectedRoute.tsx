@@ -1,11 +1,28 @@
 import { Navigate } from "react-router-dom";
+import type { ReactElement } from "react";
+
+import { useAuth } from "../auth/AuthContext";
 
 type Props = {
-  children: JSX.Element;
+  children: ReactElement;
 };
 
-export default function ProtectedRoute({ children }: Props) {
-  const isAuthenticated = true;
+export default function ProtectedRoute({
+  children,
+}: Props) {
+  const { currentUser, loading } = useAuth();
 
-  return isAuthenticated ? children : <Navigate to="/login" replace />;
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-xl font-semibold">
+        Loading...
+      </div>
+    );
+  }
+
+  if (!currentUser) {
+    return <Navigate to="/login" replace />;
+  }
+
+  return children;
 }

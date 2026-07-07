@@ -1,40 +1,58 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 
-// Public Pages
 import Home from "../pages/public/Home";
 import About from "../pages/public/About";
 import Services from "../pages/public/Services";
 import NotFound from "../pages/public/NotFound";
 
-// Authentication
 import Login from "../pages/auth/Login";
 import Register from "../pages/auth/Register";
 
-// Citizen
+import DashboardLayout from "../layouts/DashboardLayout";
+
 import Dashboard from "../pages/citizen/Dashboard";
 import ReportEmergency from "../pages/citizen/ReportEmergency";
+import MyReports from "../pages/citizen/MyReports";
+import Alerts from "../pages/citizen/Alerts";
+import EmergencyContacts from "../pages/citizen/EmergencyContacts";
+import SafeZones from "../pages/citizen/SafeZones";
+import Community from "../pages/citizen/Community";
+import ProfileSettings from "../pages/citizen/ProfileSettings";
+import HelpSupport from "../pages/citizen/HelpSupport";
+
+import ProtectedRoute from "./ProtectedRoute";
 
 export default function AppRouter() {
   return (
     <BrowserRouter>
       <Routes>
-
-        {/* Public */}
         <Route path="/" element={<Home />} />
         <Route path="/about" element={<About />} />
         <Route path="/services" element={<Services />} />
 
-        {/* Authentication */}
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
 
-        {/* Citizen */}
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/dashboard/report" element={<ReportEmergency />} />
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              <DashboardLayout />
+            </ProtectedRoute>
+          }
+        >
+          <Route index element={<Dashboard />} />
+          <Route path="report" element={<ReportEmergency />} />
+          <Route path="reports" element={<MyReports />} />
+          <Route path="alerts" element={<Alerts />} />
+          <Route path="contacts" element={<EmergencyContacts />} />
+          <Route path="safe-zones" element={<SafeZones />} />
+          <Route path="community" element={<Community />} />
+          <Route path="profile" element={<ProfileSettings />} />
+          <Route path="help" element={<HelpSupport />} />
+        </Route>
 
-        {/* 404 */}
         <Route path="*" element={<NotFound />} />
-
       </Routes>
     </BrowserRouter>
   );
