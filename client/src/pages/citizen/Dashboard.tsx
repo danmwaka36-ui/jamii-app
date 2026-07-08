@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../../auth/AuthContext";
 
@@ -11,6 +12,7 @@ import {
   FaShieldAlt,
   FaTint,
   FaTimes,
+  FaCloudSun,
 } from "react-icons/fa";
 
 const stats = [
@@ -79,7 +81,7 @@ const stats = [
 const activities = [
   {
     title: "Fire reported at Bamburi",
-    time: "10:10 AM • 5 mins ago",
+    time: "5 mins ago",
     icon: <FaFire />,
     color: "text-red-600",
     bg: "bg-red-50",
@@ -87,7 +89,7 @@ const activities = [
   },
   {
     title: "Ambulance dispatched to Nyali",
-    time: "09:45 AM • 30 mins ago",
+    time: "30 mins ago",
     icon: <FaAmbulance />,
     color: "text-emerald-600",
     bg: "bg-emerald-50",
@@ -95,7 +97,7 @@ const activities = [
   },
   {
     title: "Police responding to robbery alert",
-    time: "09:20 AM • 1 hour ago",
+    time: "1 hour ago",
     icon: <FaShieldAlt />,
     color: "text-blue-600",
     bg: "bg-blue-50",
@@ -103,7 +105,7 @@ const activities = [
   },
   {
     title: "Heavy rainfall warning issued",
-    time: "08:30 AM • 2 hours ago",
+    time: "2 hours ago",
     icon: <FaTint />,
     color: "text-sky-600",
     bg: "bg-sky-50",
@@ -111,7 +113,7 @@ const activities = [
   },
   {
     title: "County emergency bulletin updated",
-    time: "07:50 AM • 3 hours ago",
+    time: "3 hours ago",
     icon: <FaBullhorn />,
     color: "text-amber-600",
     bg: "bg-amber-50",
@@ -166,6 +168,7 @@ const contacts = [
   {
     title: "Police",
     number: "999 / 112",
+    callNumber: "999",
     icon: <FaShieldAlt />,
     bg: "bg-blue-50",
     color: "text-blue-600",
@@ -173,6 +176,7 @@ const contacts = [
   {
     title: "Ambulance",
     number: "998",
+    callNumber: "998",
     icon: <FaAmbulance />,
     bg: "bg-emerald-50",
     color: "text-emerald-600",
@@ -180,6 +184,7 @@ const contacts = [
   {
     title: "Fire Brigade",
     number: "997",
+    callNumber: "997",
     icon: <FaFire />,
     bg: "bg-red-50",
     color: "text-red-600",
@@ -187,6 +192,7 @@ const contacts = [
   {
     title: "County Emergency",
     number: "996",
+    callNumber: "996",
     icon: <FaBullhorn />,
     bg: "bg-purple-50",
     color: "text-purple-600",
@@ -195,9 +201,29 @@ const contacts = [
 
 export default function Dashboard() {
   const { userProfile } = useAuth();
+  const [now, setNow] = useState(new Date());
 
-  const firstName =
-    userProfile?.fullName?.split(" ")[0] || "User";
+  const firstName = userProfile?.fullName?.split(" ")[0] || "User";
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setNow(new Date());
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, []);
+
+  const currentDate = now.toLocaleDateString("en-KE", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+
+  const currentTime = now.toLocaleTimeString("en-KE", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 
   return (
     <div className="space-y-6">
@@ -214,9 +240,16 @@ export default function Dashboard() {
               </p>
             </div>
 
-            <div className="text-right text-sm text-slate-600">
-              <p>Monday, 7 July 2026</p>
-              <p className="text-xl font-bold text-slate-900">10:24 AM</p>
+            <div className="space-y-2 text-right text-sm text-slate-600">
+              <p>{currentDate}</p>
+              <p className="text-xl font-bold text-slate-900">
+                {currentTime}
+              </p>
+
+              <div className="inline-flex items-center gap-2 rounded-xl bg-sky-50 px-4 py-2 text-sky-700">
+                <FaCloudSun />
+                <span className="font-semibold">Mombasa Weather</span>
+              </div>
             </div>
           </div>
 
@@ -279,9 +312,12 @@ export default function Dashboard() {
                   <FaAmbulance />
                 </div>
 
-                <button className="absolute bottom-5 left-5 rounded-xl bg-white px-4 py-3 text-sm font-bold text-blue-700 shadow">
+                <Link
+                  to="/dashboard/safe-zones"
+                  className="absolute bottom-5 left-5 rounded-xl bg-white px-4 py-3 text-sm font-bold text-blue-700 shadow"
+                >
                   View Full Map
-                </button>
+                </Link>
               </div>
             </div>
 
@@ -289,9 +325,12 @@ export default function Dashboard() {
               <div className="mb-5 flex items-center justify-between">
                 <h2 className="font-bold text-slate-950">My Recent Reports</h2>
 
-                <button className="text-sm font-semibold text-blue-600">
+                <Link
+                  to="/dashboard/reports"
+                  className="text-sm font-semibold text-blue-600"
+                >
                   View all
-                </button>
+                </Link>
               </div>
 
               <div className="divide-y divide-slate-100">
@@ -349,9 +388,12 @@ export default function Dashboard() {
                 Latest Activity
               </h2>
 
-              <button className="text-sm font-semibold text-blue-600">
+              <Link
+                to="/dashboard/alerts"
+                className="text-sm font-semibold text-blue-600"
+              >
                 View all
-              </button>
+              </Link>
             </div>
 
             <div className="space-y-4">
@@ -377,9 +419,12 @@ export default function Dashboard() {
               ))}
             </div>
 
-            <button className="mt-6 w-full rounded-xl border border-slate-200 py-3 text-sm font-bold text-blue-700">
+            <Link
+              to="/dashboard/alerts"
+              className="mt-6 block w-full rounded-xl border border-slate-200 py-3 text-center text-sm font-bold text-blue-700"
+            >
               View all activity
-            </button>
+            </Link>
           </div>
 
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -401,16 +446,37 @@ export default function Dashboard() {
                     <p className="text-sm text-slate-500">{item.number}</p>
                   </div>
 
-                  <button className="rounded-lg border border-slate-200 p-3 text-blue-600">
+                  <a
+                    href={`tel:${item.callNumber}`}
+                    className="rounded-lg border border-slate-200 p-3 text-blue-600 hover:bg-blue-50"
+                  >
                     <FaPhoneAlt />
-                  </button>
+                  </a>
                 </div>
               ))}
             </div>
 
-            <button className="mt-6 w-full rounded-xl border border-slate-200 py-3 text-sm font-bold text-blue-700">
+            <Link
+              to="/dashboard/contacts"
+              className="mt-6 block w-full rounded-xl border border-slate-200 py-3 text-center text-sm font-bold text-blue-700"
+            >
               View all contacts
-            </button>
+            </Link>
+          </div>
+
+          <div className="rounded-2xl border border-red-100 bg-red-50 p-5">
+            <h2 className="font-bold text-red-700">Quick SOS</h2>
+            <p className="mt-2 text-sm text-red-700">
+              Tap to call emergency services immediately.
+            </p>
+
+            <a
+              href="tel:999"
+              className="mt-4 flex items-center justify-center gap-2 rounded-xl bg-red-600 py-3 font-bold text-white hover:bg-red-700"
+            >
+              <FaPhoneAlt />
+              Call SOS
+            </a>
           </div>
         </aside>
       </div>

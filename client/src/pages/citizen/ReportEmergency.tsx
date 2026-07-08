@@ -6,12 +6,12 @@ import { db } from "../../firebase/firebase";
 import { useAuth } from "../../auth/AuthContext";
 
 const emergencyTypes = [
-  "Fire",
-  "Medical",
-  "Police",
-  "Flood",
-  "Accident",
-  "Community Alert",
+  { label: "Fire", responder: "fire", icon: "🚒" },
+  { label: "Medical", responder: "ambulance", icon: "🚑" },
+  { label: "Police", responder: "police", icon: "🚔" },
+  { label: "Flood", responder: "county", icon: "🌊" },
+  { label: "Accident", responder: "police", icon: "🚗" },
+  { label: "Community Alert", responder: "nyumbakumi", icon: "📢" },
 ];
 
 const severityLevels = ["Low", "Medium", "High", "Critical"];
@@ -21,6 +21,7 @@ export default function ReportEmergency() {
   const { currentUser, userProfile } = useAuth();
 
   const [type, setType] = useState("");
+  const [assignedRole, setAssignedRole] = useState("");
   const [severity, setSeverity] = useState("");
   const [description, setDescription] = useState("");
   const [location, setLocation] = useState("");
@@ -35,6 +36,11 @@ export default function ReportEmergency() {
     longitude: number;
   } | null>(null);
 
+  function handleTypeSelect(label: string, responder: string) {
+    setType(label);
+    setAssignedRole(responder);
+  }
+
   function getLocation() {
     setGpsLoading(true);
     setError("");
@@ -47,15 +53,11 @@ export default function ReportEmergency() {
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        setCoordinates({
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-        });
+        const latitude = position.coords.latitude;
+        const longitude = position.coords.longitude;
 
-        setLocation(
-          `Lat: ${position.coords.latitude}, Lng: ${position.coords.longitude}`
-        );
-
+        setCoordinates({ latitude, longitude });
+        setLocation(`Lat: ${latitude}, Lng: ${longitude}`);
         setGpsLoading(false);
       },
       () => {
@@ -83,21 +85,37 @@ export default function ReportEmergency() {
       setError("");
 
       await addDoc(collection(db, "reports"), {
-        userId: currentUser.uid,
+        reporterId: currentUser.uid,
         reporterName: userProfile?.fullName || "Unknown User",
         reporterEmail: currentUser.email,
+        reporterRole: userProfile?.role || "citizen",
+
         phone,
         type,
+        assignedRole,
         severity,
         description,
         location,
         coordinates,
+
         status: "Pending",
+        priority:
+          severity === "Critical"
+            ? 1
+            : severity === "High"
+            ? 2
+            : severity === "Medium"
+            ? 3
+            : 4,
+
+        assignedResponderId: null,
+        assignedResponderName: null,
+
         createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
       });
 
       alert("Emergency report submitted successfully.");
-
       navigate("/dashboard/reports");
     } catch (err) {
       console.error(err);
@@ -114,57 +132,64 @@ export default function ReportEmergency() {
           🚨 Report Emergency
         </h1>
         <p className="mt-2 text-slate-600">
-          Submit a real-time emergency report to Jamii App responders.
+          Submit a verified emergency report to the correct response team.
         </p>
       </div>
 
-      <form
-        onSubmit={handleSubmit}
-        className="grid gap-6 xl:grid-cols-[1fr_360px]"
-      >
+      <form onSubmit={handleSubmit} className="grid gap-6 xl:grid-cols-[1fr_360px]">
         <div className="space-y-6">
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <h2 className="text-xl font-bold text-slate-900">
+              Select Emergency Type
+            </h2>
+
+            <div className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {emergencyTypes.map((item) => (
+                <button
+                  key={item.label}
+                  type="button"
+                  onClick={() => handleTypeSelect(item.label, item.responder)}
+                  className={`rounded-2xl border p-5 text-left transition ${
+                    type === item.label
+                      ? "border-red-500 bg-red-50 shadow"
+                      : "border-slate-200 bg-white hover:border-blue-400 hover:bg-blue-50"
+                  }`}
+                >
+                  <div className="text-3xl">{item.icon}</div>
+                  <p className="mt-3 font-bold text-slate-900">{item.label}</p>
+                  <p className="mt-1 text-sm text-slate-500 capitalize">
+                    Routed to {item.responder}
+                  </p>
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
             <h2 className="text-xl font-bold text-slate-900">
               Emergency Details
             </h2>
 
-            <div className="mt-6 grid gap-5 md:grid-cols-2">
-              <div>
-                <label className="text-sm font-semibold text-slate-700">
-                  Emergency Type
-                </label>
-                <select
-                  value={type}
-                  onChange={(e) => setType(e.target.value)}
-                  className="mt-2 w-full rounded-xl border border-slate-200 p-3 outline-none focus:border-blue-500"
-                  required
-                >
-                  <option value="">Select emergency type</option>
-                  {emergencyTypes.map((item) => (
-                    <option key={item} value={item}>
-                      {item}
-                    </option>
-                  ))}
-                </select>
-              </div>
+            <div className="mt-6">
+              <label className="text-sm font-semibold text-slate-700">
+                Severity Level
+              </label>
 
-              <div>
-                <label className="text-sm font-semibold text-slate-700">
-                  Severity Level
-                </label>
-                <select
-                  value={severity}
-                  onChange={(e) => setSeverity(e.target.value)}
-                  className="mt-2 w-full rounded-xl border border-slate-200 p-3 outline-none focus:border-blue-500"
-                  required
-                >
-                  <option value="">Select severity</option>
-                  {severityLevels.map((item) => (
-                    <option key={item} value={item}>
-                      {item}
-                    </option>
-                  ))}
-                </select>
+              <div className="mt-3 grid gap-3 md:grid-cols-4">
+                {severityLevels.map((item) => (
+                  <button
+                    key={item}
+                    type="button"
+                    onClick={() => setSeverity(item)}
+                    className={`rounded-xl border px-4 py-3 font-semibold ${
+                      severity === item
+                        ? "border-red-500 bg-red-50 text-red-700"
+                        : "border-slate-200 text-slate-700 hover:bg-slate-50"
+                    }`}
+                  >
+                    {item}
+                  </button>
+                ))}
               </div>
             </div>
 
@@ -249,22 +274,28 @@ export default function ReportEmergency() {
               Emergency Notice
             </h2>
             <p className="mt-3 text-sm leading-6 text-red-700">
-              If this is a life-threatening emergency, call emergency services
-              immediately while also submitting this report.
+              For life-threatening emergencies, call emergency services immediately
+              while submitting this report.
             </p>
           </div>
 
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
             <h2 className="text-xl font-bold text-slate-900">
-              What happens next?
+              Report Routing
             </h2>
 
-            <ul className="mt-4 space-y-3 text-sm text-slate-600">
-              <li>✅ Your report is saved securely.</li>
-              <li>✅ Emergency teams receive the alert.</li>
-              <li>✅ You can track it in My Reports.</li>
-              <li>✅ Responders update the status.</li>
-            </ul>
+            <div className="mt-4 rounded-xl bg-slate-50 p-4">
+              <p className="text-sm text-slate-500">Selected Type</p>
+              <p className="font-bold text-slate-900">{type || "Not selected"}</p>
+
+              <p className="mt-4 text-sm text-slate-500">Assigned Team</p>
+              <p className="font-bold capitalize text-blue-700">
+                {assignedRole || "Not assigned"}
+              </p>
+
+              <p className="mt-4 text-sm text-slate-500">Current Status</p>
+              <p className="font-bold text-orange-600">Pending</p>
+            </div>
           </div>
         </aside>
       </form>
