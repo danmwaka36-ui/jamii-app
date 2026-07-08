@@ -20,6 +20,14 @@ import Community from "../pages/citizen/Community";
 import ProfileSettings from "../pages/citizen/ProfileSettings";
 import HelpSupport from "../pages/citizen/HelpSupport";
 
+import PoliceDashboard from "../pages/police/PoliceDashboard";
+import FireDashboard from "../pages/fire/FireDashboard";
+import AmbulanceDashboard from "../pages/ambulance/AmbulanceDashboard";
+import CountyDashboard from "../pages/county/CountyDashboard";
+import RedCrossDashboard from "../pages/redcross/RedCrossDashboard";
+import NyumbaKumiDashboard from "../pages/nyumbakumi/NyumbaKumiDashboard";
+import AdminDashboard from "../pages/admin/AdminDashboard";
+
 import ProtectedRoute from "./ProtectedRoute";
 
 export default function AppRouter() {
@@ -51,6 +59,69 @@ export default function AppRouter() {
           <Route path="profile" element={<ProfileSettings />} />
           <Route path="help" element={<HelpSupport />} />
         </Route>
+
+        <Route
+          path="/police"
+          element={
+            <ProtectedRoute>
+              <PoliceDashboard />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/fire"
+          element={
+            <ProtectedRoute>
+              <FireDashboard />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/ambulance"
+          element={
+            <ProtectedRoute>
+              <AmbulanceDashboard />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/county"
+          element={
+            <ProtectedRoute>
+              <CountyDashboard />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/redcross"
+          element={
+            <ProtectedRoute>
+              <RedCrossDashboard />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/nyumbakumi"
+          element={
+            <ProtectedRoute>
+              <NyumbaKumiDashboard />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/admin"
+          element={
+            <ProtectedRoute>
+              <AdminDashboard />
+            </ProtectedRoute>
+          }
+        />
 
         <Route path="*" element={<NotFound />} />
       </Routes>
