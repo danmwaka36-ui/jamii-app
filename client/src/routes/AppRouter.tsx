@@ -32,6 +32,10 @@ import AdminDashboard from "../pages/admin/AdminDashboard";
 import UserManagement from "../pages/admin/users/UserManagement";
 import AuditLogs from "../pages/admin/audit/AuditLogs";
 import EmergencyManagement from "../pages/admin/emergencymanagement/EmergencyManagement";
+import RoleManagement from "../pages/admin/roles/RoleManagement";
+import AgencyManagement from "../pages/admin/agencies/AgencyManagement";
+import SystemAnalytics from "../pages/admin/analytics/SystemAnalytics";
+import AdminSettings from "../pages/admin/settings/AdminSettings";
 
 import RoleRoute from "./RoleRoute";
 
@@ -39,16 +43,16 @@ export default function AppRouter() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Public */}
+        {/* ================= PUBLIC ================= */}
         <Route path="/" element={<Home />} />
         <Route path="/about" element={<About />} />
         <Route path="/services" element={<Services />} />
 
-        {/* Auth */}
+        {/* ================= AUTH ================= */}
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
 
-        {/* Citizen */}
+        {/* ================= CITIZEN ================= */}
         <Route
           path="/dashboard"
           element={
@@ -68,7 +72,7 @@ export default function AppRouter() {
           <Route path="help" element={<HelpSupport />} />
         </Route>
 
-        {/* Admin */}
+        {/* ================= ADMIN ================= */}
         <Route
           path="/admin"
           element={
@@ -78,12 +82,18 @@ export default function AppRouter() {
           }
         >
           <Route index element={<AdminDashboard />} />
+
+          {/* Core Admin */}
           <Route path="users" element={<UserManagement />} />
-          <Route path="audit-logs" element={<AuditLogs />} />
+          <Route path="roles" element={<RoleManagement />} />
           <Route path="emergencies" element={<EmergencyManagement />} />
+          <Route path="agencies" element={<AgencyManagement />} />
+          <Route path="analytics" element={<SystemAnalytics />} />
+          <Route path="audit-logs" element={<AuditLogs />} />
+          <Route path="settings" element={<AdminSettings />} />
         </Route>
 
-        {/* Role dashboards */}
+        {/* ================= POLICE ================= */}
         <Route
           path="/police"
           element={
@@ -93,6 +103,7 @@ export default function AppRouter() {
           }
         />
 
+        {/* ================= FIRE ================= */}
         <Route
           path="/fire"
           element={
@@ -102,6 +113,7 @@ export default function AppRouter() {
           }
         />
 
+        {/* ================= AMBULANCE ================= */}
         <Route
           path="/ambulance"
           element={
@@ -111,6 +123,7 @@ export default function AppRouter() {
           }
         />
 
+        {/* ================= COUNTY ================= */}
         <Route
           path="/county"
           element={
@@ -120,6 +133,7 @@ export default function AppRouter() {
           }
         />
 
+        {/* ================= RED CROSS ================= */}
         <Route
           path="/redcross"
           element={
@@ -129,6 +143,7 @@ export default function AppRouter() {
           }
         />
 
+        {/* ================= NYUMBA KUMI ================= */}
         <Route
           path="/nyumbakumi"
           element={
@@ -138,7 +153,7 @@ export default function AppRouter() {
           }
         />
 
-        {/* 404 */}
+        {/* ================= 404 ================= */}
         <Route path="*" element={<NotFound />} />
       </Routes>
     </BrowserRouter>
