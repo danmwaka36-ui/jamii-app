@@ -156,9 +156,13 @@ export default function EmergencyManagement() {
   const totalReports = reports.length;
   const pendingReports = reports.filter((r) => r.status === "Pending").length;
   const assignedReports = reports.filter((r) => r.status === "Assigned").length;
-  const respondingReports = reports.filter((r) => r.status === "Responding").length;
+  const respondingReports = reports.filter(
+    (r) => r.status === "Responding"
+  ).length;
   const resolvedReports = reports.filter((r) => r.status === "Resolved").length;
-  const criticalReports = reports.filter((r) => r.severity === "Critical").length;
+  const criticalReports = reports.filter(
+    (r) => r.severity === "Critical"
+  ).length;
 
   return (
     <div className="space-y-6">
@@ -167,11 +171,12 @@ export default function EmergencyManagement() {
           🚨 Emergency Management
         </h1>
         <p className="mt-2 text-slate-600">
-          Monitor live emergency reports, assign agencies, update status, and track response progress.
+          Monitor live emergency reports, assign agencies, update status, and
+          track response progress.
         </p>
       </div>
 
-      <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-5">
+      <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-6">
         <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <p className="text-sm text-slate-500">Total Reports</p>
           <h2 className="mt-3 text-3xl font-extrabold">{totalReports}</h2>
@@ -195,6 +200,13 @@ export default function EmergencyManagement() {
           <p className="text-sm text-slate-500">Assigned</p>
           <h2 className="mt-3 text-3xl font-extrabold text-purple-600">
             {assignedReports}
+          </h2>
+        </div>
+
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <p className="text-sm text-slate-500">Responding</p>
+          <h2 className="mt-3 text-3xl font-extrabold text-blue-600">
+            {respondingReports}
           </h2>
         </div>
 
@@ -398,14 +410,18 @@ export default function EmergencyManagement() {
                       </button>
 
                       <button
-                        onClick={() => updateReportStatus(report.id, "Responding")}
+                        onClick={() =>
+                          updateReportStatus(report.id, "Responding")
+                        }
                         className="rounded-xl bg-purple-600 px-4 py-3 text-sm font-bold text-white hover:bg-purple-700"
                       >
                         Dispatch
                       </button>
 
                       <button
-                        onClick={() => updateReportStatus(report.id, "Resolved")}
+                        onClick={() =>
+                          updateReportStatus(report.id, "Resolved")
+                        }
                         className="rounded-xl bg-emerald-600 px-4 py-3 text-sm font-bold text-white hover:bg-emerald-700"
                       >
                         Close Incident
