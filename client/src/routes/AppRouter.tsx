@@ -9,6 +9,7 @@ import Login from "../pages/auth/Login";
 import Register from "../pages/auth/Register";
 
 import DashboardLayout from "../layouts/DashboardLayout";
+import AdminLayout from "../layouts/AdminLayout";
 
 import Dashboard from "../pages/citizen/Dashboard";
 import ReportEmergency from "../pages/citizen/ReportEmergency";
@@ -26,27 +27,33 @@ import AmbulanceDashboard from "../pages/ambulance/AmbulanceDashboard";
 import CountyDashboard from "../pages/county/CountyDashboard";
 import RedCrossDashboard from "../pages/redcross/RedCrossDashboard";
 import NyumbaKumiDashboard from "../pages/nyumbakumi/NyumbaKumiDashboard";
-import AdminDashboard from "../pages/admin/AdminDashboard";
 
-import ProtectedRoute from "./ProtectedRoute";
+import AdminDashboard from "../pages/admin/AdminDashboard";
+import UserManagement from "../pages/admin/users/UserManagement";
+import AuditLogs from "../pages/admin/audit/AuditLogs";
+
+import RoleRoute from "./RoleRoute";
 
 export default function AppRouter() {
   return (
     <BrowserRouter>
       <Routes>
+        {/* Public */}
         <Route path="/" element={<Home />} />
         <Route path="/about" element={<About />} />
         <Route path="/services" element={<Services />} />
 
+        {/* Auth */}
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
 
+        {/* Citizen */}
         <Route
           path="/dashboard"
           element={
-            <ProtectedRoute>
+            <RoleRoute allowedRoles={["citizen", "admin"]}>
               <DashboardLayout />
-            </ProtectedRoute>
+            </RoleRoute>
           }
         >
           <Route index element={<Dashboard />} />
@@ -60,69 +67,76 @@ export default function AppRouter() {
           <Route path="help" element={<HelpSupport />} />
         </Route>
 
+        {/* Admin */}
+        <Route
+          path="/admin"
+          element={
+            <RoleRoute allowedRoles={["admin"]}>
+              <AdminLayout />
+            </RoleRoute>
+          }
+        >
+          <Route index element={<AdminDashboard />} />
+          <Route path="users" element={<UserManagement />} />
+          <Route path="audit-logs" element={<AuditLogs />} />
+        </Route>
+
+        {/* Role dashboards */}
         <Route
           path="/police"
           element={
-            <ProtectedRoute>
+            <RoleRoute allowedRoles={["police", "admin"]}>
               <PoliceDashboard />
-            </ProtectedRoute>
+            </RoleRoute>
           }
         />
 
         <Route
           path="/fire"
           element={
-            <ProtectedRoute>
+            <RoleRoute allowedRoles={["fire", "admin"]}>
               <FireDashboard />
-            </ProtectedRoute>
+            </RoleRoute>
           }
         />
 
         <Route
           path="/ambulance"
           element={
-            <ProtectedRoute>
+            <RoleRoute allowedRoles={["ambulance", "admin"]}>
               <AmbulanceDashboard />
-            </ProtectedRoute>
+            </RoleRoute>
           }
         />
 
         <Route
           path="/county"
           element={
-            <ProtectedRoute>
+            <RoleRoute allowedRoles={["county", "admin"]}>
               <CountyDashboard />
-            </ProtectedRoute>
+            </RoleRoute>
           }
         />
 
         <Route
           path="/redcross"
           element={
-            <ProtectedRoute>
+            <RoleRoute allowedRoles={["redcross", "admin"]}>
               <RedCrossDashboard />
-            </ProtectedRoute>
+            </RoleRoute>
           }
         />
 
         <Route
           path="/nyumbakumi"
           element={
-            <ProtectedRoute>
+            <RoleRoute allowedRoles={["nyumbakumi", "admin"]}>
               <NyumbaKumiDashboard />
-            </ProtectedRoute>
+            </RoleRoute>
           }
         />
 
-        <Route
-          path="/admin"
-          element={
-            <ProtectedRoute>
-              <AdminDashboard />
-            </ProtectedRoute>
-          }
-        />
-
+        {/* 404 */}
         <Route path="*" element={<NotFound />} />
       </Routes>
     </BrowserRouter>

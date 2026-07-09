@@ -1,6 +1,10 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { doc, getDoc } from "firebase/firestore";
+
 import { loginUser } from "../../services/authService";
+import { db } from "../../firebase/firebase";
+import { getDashboardPath } from "../../utils/roleRedirect";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -13,29 +17,25 @@ export default function Login() {
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
-
     setError("");
 
     try {
       setLoading(true);
 
-      const userCredential = await loginUser(
-        email,
-        password
-      );
+      const userCredential = await loginUser(email, password);
 
-      console.log("Logged in:", userCredential.user);
+      const userRef = doc(db, "users", userCredential.user.uid);
+      const userSnap = await getDoc(userRef);
 
-      alert("Login Successful!");
+      const role = userSnap.exists()
+        ? userSnap.data().role
+        : "citizen";
 
-      navigate("/dashboard");
-
+      navigate(getDashboardPath(role));
     } catch (err: any) {
-
       console.error(err);
 
       switch (err.code) {
-
         case "auth/invalid-credential":
         case "auth/wrong-password":
         case "auth/user-not-found":
@@ -53,7 +53,6 @@ export default function Login() {
         default:
           setError(err.message);
       }
-
     } finally {
       setLoading(false);
     }
@@ -61,9 +60,7 @@ export default function Login() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-100 px-4">
-
       <div className="bg-white rounded-xl shadow-xl p-8 w-full max-w-md">
-
         <h1 className="text-3xl font-bold text-center">
           Welcome Back
         </h1>
@@ -72,11 +69,7 @@ export default function Login() {
           Login to Jamii App
         </p>
 
-        <form
-          onSubmit={handleLogin}
-          className="space-y-4"
-        >
-
+        <form onSubmit={handleLogin} className="space-y-4">
           <input
             type="email"
             placeholder="Email Address"
@@ -106,24 +99,19 @@ export default function Login() {
             disabled={loading}
             className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg p-3"
           >
-            {loading ? "Logging In..." : "Login"}
+            {loading ? "Checking Role..." : "Login"}
           </button>
-
         </form>
 
         <div className="text-center mt-6">
-
           <Link
             to="/register"
             className="text-blue-600 hover:underline"
           >
             Don't have an account? Register
           </Link>
-
         </div>
-
       </div>
-
     </div>
   );
 }

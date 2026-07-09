@@ -1,28 +1,9 @@
-export function getDashboardPath(role?: string) {
-  switch (role) {
-    case "police":
-      return "/police";
+import { getRoleDashboardPath } from "../config/roles";
 
-    case "fire":
-      return "/fire";
-
-    case "ambulance":
-      return "/ambulance";
-
-    case "county":
-      return "/county";
-
-    case "redcross":
-      return "/redcross";
-
-    case "nyumbakumi":
-      return "/nyumbakumi";
-
-    case "admin":
-      return "/admin";
-
-    case "citizen":
-    default:
-      return "/dashboard";
-  }
+/**
+ * Returns the correct dashboard path
+ * based on the authenticated user's role.
+ */
+export function getDashboardPath(role?: string): string {
+  return getRoleDashboardPath(role);
 }
