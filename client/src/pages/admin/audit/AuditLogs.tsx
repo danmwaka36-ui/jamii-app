@@ -11,19 +11,20 @@ import { db } from "../../../firebase/firebase";
 
 type AuditLog = {
   id: string;
-  action: string;
-  targetUserName: string;
-  targetUserEmail: string;
-  oldValue: string;
-  newValue: string;
-  performedByName: string;
-  performedByEmail: string;
+  action?: string;
+  targetUserName?: string;
+  targetUserEmail?: string;
+  oldValue?: string;
+  newValue?: string;
+  performedByName?: string;
+  performedByEmail?: string;
   createdAt?: any;
 };
 
 export default function AuditLogs() {
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     const q = query(
@@ -31,15 +32,24 @@ export default function AuditLogs() {
       orderBy("createdAt", "desc")
     );
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const data = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as AuditLog[];
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const data = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        })) as AuditLog[];
 
-      setLogs(data);
-      setLoading(false);
-    });
+        setLogs(data);
+        setLoading(false);
+        setError("");
+      },
+      (err) => {
+        console.error(err);
+        setError("Unable to load audit logs. Check Firestore rules or indexes.");
+        setLoading(false);
+      }
+    );
 
     return () => unsubscribe();
   }, []);
@@ -51,6 +61,7 @@ export default function AuditLogs() {
           <FaClipboardList />
           Audit Logs
         </h1>
+
         <p className="mt-2 text-slate-600">
           Track admin actions, role changes and account status updates.
         </p>
@@ -58,9 +69,17 @@ export default function AuditLogs() {
 
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         {loading ? (
-          <div className="p-8 text-slate-500">Loading audit logs...</div>
+          <div className="p-8 text-slate-500">
+            Loading audit logs...
+          </div>
+        ) : error ? (
+          <div className="p-8 text-red-600">
+            {error}
+          </div>
         ) : logs.length === 0 ? (
-          <div className="p-8 text-slate-500">No audit logs yet.</div>
+          <div className="p-8 text-slate-500">
+            No audit logs yet. Change a user role or suspend/activate a user to create one.
+          </div>
         ) : (
           <div className="divide-y divide-slate-100">
             {logs.map((log) => (
@@ -68,24 +87,26 @@ export default function AuditLogs() {
                 <div className="flex flex-wrap items-center justify-between gap-4">
                   <div>
                     <h2 className="font-bold text-slate-950">
-                      {log.action}
+                      {log.action || "ADMIN_ACTION"}
                     </h2>
+
                     <p className="mt-1 text-sm text-slate-500">
-                      Target: {log.targetUserName} ({log.targetUserEmail})
+                      Target: {log.targetUserName || "Unknown User"}{" "}
+                      ({log.targetUserEmail || "No email"})
                     </p>
                   </div>
 
                   <span className="rounded-full bg-purple-100 px-3 py-1 text-xs font-bold text-purple-700">
-                    {log.oldValue} → {log.newValue}
+                    {log.oldValue || "—"} → {log.newValue || "—"}
                   </span>
                 </div>
 
                 <p className="mt-4 text-sm text-slate-600">
                   Performed by{" "}
                   <span className="font-bold">
-                    {log.performedByName}
+                    {log.performedByName || "Unknown Admin"}
                   </span>{" "}
-                  ({log.performedByEmail})
+                  ({log.performedByEmail || "No email"})
                 </p>
               </div>
             ))}

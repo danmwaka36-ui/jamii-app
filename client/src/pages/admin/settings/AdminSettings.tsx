@@ -19,12 +19,22 @@ export default function AdminSettings() {
   const [maintenanceMode, setMaintenanceMode] = useState(false);
   const [message, setMessage] = useState("");
 
+  const systemHealth = [
+    ["Firebase Authentication", "Operational", "bg-emerald-100 text-emerald-700"],
+    ["Firestore Database", "Connected", "bg-emerald-100 text-emerald-700"],
+    ["Cloudflare Hosting", "Online", "bg-emerald-100 text-emerald-700"],
+    ["Emergency Reporting API", "Running", "bg-emerald-100 text-emerald-700"],
+    ["Notification Service", "Active", "bg-emerald-100 text-emerald-700"],
+    ["GPS & Maps", "Connected", "bg-emerald-100 text-emerald-700"],
+    ["Email Service", "Operational", "bg-emerald-100 text-emerald-700"],
+    ["SMS Gateway", "Configuration Required", "bg-yellow-100 text-yellow-700"],
+    ["WhatsApp Integration", "Coming Soon", "bg-yellow-100 text-yellow-700"],
+    ["AI Dispatch Engine", "Beta", "bg-blue-100 text-blue-700"],
+  ];
+
   function handleSave(e: React.FormEvent) {
     e.preventDefault();
-
-    setMessage(
-      "Settings saved locally. Firestore settings storage will be connected next."
-    );
+    setMessage("Settings saved locally. Firestore settings storage will be connected next.");
   }
 
   return (
@@ -33,10 +43,8 @@ export default function AdminSettings() {
         <h1 className="text-3xl font-extrabold text-slate-950">
           ⚙️ Admin Settings
         </h1>
-
         <p className="mt-2 text-slate-600">
-          Configure platform identity, emergency contacts, notifications and
-          security options.
+          Configure platform identity, emergency contacts, notifications and security options.
         </p>
       </div>
 
@@ -46,7 +54,7 @@ export default function AdminSettings() {
         </div>
       )}
 
-      <form onSubmit={handleSave} className="grid gap-6 xl:grid-cols-[1fr_360px]">
+      <form onSubmit={handleSave} className="grid gap-6 xl:grid-cols-[1fr_380px]">
         <section className="space-y-6">
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
             <h2 className="flex items-center gap-3 text-xl font-bold text-slate-950">
@@ -115,7 +123,6 @@ export default function AdminSettings() {
                     Send emergency updates by SMS.
                   </p>
                 </span>
-
                 <input
                   type="checkbox"
                   checked={smsAlerts}
@@ -131,7 +138,6 @@ export default function AdminSettings() {
                     Send system notifications by email.
                   </p>
                 </span>
-
                 <input
                   type="checkbox"
                   checked={emailAlerts}
@@ -147,7 +153,6 @@ export default function AdminSettings() {
                     Enable browser and app push notifications.
                   </p>
                 </span>
-
                 <input
                   type="checkbox"
                   checked={pushAlerts}
@@ -171,7 +176,6 @@ export default function AdminSettings() {
                   Temporarily restrict access during updates.
                 </p>
               </span>
-
               <input
                 type="checkbox"
                 checked={maintenanceMode}
@@ -208,16 +212,27 @@ export default function AdminSettings() {
             <FaEnvelope className="text-3xl text-blue-600" />
 
             <h2 className="mt-4 text-lg font-bold text-slate-950">
-              Notification Roadmap
+              System Health Dashboard
             </h2>
 
-            <ul className="mt-4 space-y-3 text-sm text-slate-600">
-              <li>✅ Email alerts</li>
-              <li>✅ SMS alerts</li>
-              <li>✅ Push notifications</li>
-              <li>⏳ WhatsApp alerts</li>
-              <li>⏳ Agency escalation rules</li>
-            </ul>
+            <div className="mt-5 space-y-4">
+              {systemHealth.map(([service, status, color]) => (
+                <div
+                  key={service}
+                  className="flex items-center justify-between rounded-xl bg-slate-50 p-4"
+                >
+                  <span className="font-semibold text-slate-700">
+                    {service}
+                  </span>
+
+                  <span
+                    className={`rounded-full px-3 py-1 text-xs font-bold ${color}`}
+                  >
+                    {status}
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
         </aside>
       </form>
