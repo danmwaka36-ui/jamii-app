@@ -31,6 +31,7 @@ import NyumbaKumiDashboard from "../pages/nyumbakumi/NyumbaKumiDashboard";
 import AdminDashboard from "../pages/admin/AdminDashboard";
 import UserManagement from "../pages/admin/users/UserManagement";
 import AuditLogs from "../pages/admin/audit/AuditLogs";
+import EmergencyManagement from "../pages/admin/emergencymanagement/EmergencyManagement";
 
 import RoleRoute from "./RoleRoute";
 
@@ -79,6 +80,7 @@ export default function AppRouter() {
           <Route index element={<AdminDashboard />} />
           <Route path="users" element={<UserManagement />} />
           <Route path="audit-logs" element={<AuditLogs />} />
+          <Route path="emergencies" element={<EmergencyManagement />} />
         </Route>
 
         {/* Role dashboards */}
