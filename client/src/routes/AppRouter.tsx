@@ -36,6 +36,7 @@ import RoleManagement from "../pages/admin/roles/RoleManagement";
 import AgencyManagement from "../pages/admin/agencies/AgencyManagement";
 import SystemAnalytics from "../pages/admin/analytics/SystemAnalytics";
 import AdminSettings from "../pages/admin/settings/AdminSettings";
+import GISCommandCentre from "../pages/admin/gis/GISCommandCentre";
 
 import RoleRoute from "./RoleRoute";
 
@@ -83,7 +84,6 @@ export default function AppRouter() {
         >
           <Route index element={<AdminDashboard />} />
 
-          {/* Core Admin */}
           <Route path="users" element={<UserManagement />} />
           <Route path="roles" element={<RoleManagement />} />
           <Route path="emergencies" element={<EmergencyManagement />} />
@@ -91,6 +91,7 @@ export default function AppRouter() {
           <Route path="analytics" element={<SystemAnalytics />} />
           <Route path="audit-logs" element={<AuditLogs />} />
           <Route path="settings" element={<AdminSettings />} />
+          <Route path="gis" element={<GISCommandCentre />} />
         </Route>
 
         {/* ================= POLICE ================= */}
