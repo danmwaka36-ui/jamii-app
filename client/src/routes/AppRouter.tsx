@@ -10,6 +10,7 @@ import Register from "../pages/auth/Register";
 
 import DashboardLayout from "../layouts/DashboardLayout";
 import AdminLayout from "../layouts/AdminLayout";
+import PoliceLayout from "../layouts/police/PoliceLayout";
 
 import Dashboard from "../pages/citizen/Dashboard";
 import ReportEmergency from "../pages/citizen/ReportEmergency";
@@ -22,6 +23,14 @@ import ProfileSettings from "../pages/citizen/ProfileSettings";
 import HelpSupport from "../pages/citizen/HelpSupport";
 
 import PoliceDashboard from "../pages/police/PoliceDashboard";
+import PoliceIncidents from "../pages/police/incidents/PoliceIncidents";
+import PoliceDispatch from "../pages/police/dispatch/PoliceDispatch";
+import PoliceOfficers from "../pages/police/officers/PoliceOfficers";
+import PoliceVehicles from "../pages/police/vehicles/PoliceVehicles";
+import CaseManagement from "../pages/police/cases/CaseManagement";
+import EvidenceManagement from "../pages/police/evidence/EvidenceManagement";
+import PoliceSettings from "../pages/police/settings/PoliceSettings";
+
 import FireDashboard from "../pages/fire/FireDashboard";
 import AmbulanceDashboard from "../pages/ambulance/AmbulanceDashboard";
 import CountyDashboard from "../pages/county/CountyDashboard";
@@ -99,10 +108,19 @@ export default function AppRouter() {
           path="/police"
           element={
             <RoleRoute allowedRoles={["police", "admin"]}>
-              <PoliceDashboard />
+              <PoliceLayout />
             </RoleRoute>
           }
-        />
+        >
+          <Route index element={<PoliceDashboard />} />
+          <Route path="incidents" element={<PoliceIncidents />} />
+          <Route path="dispatch" element={<PoliceDispatch />} />
+          <Route path="officers" element={<PoliceOfficers />} />
+          <Route path="vehicles" element={<PoliceVehicles />} />
+          <Route path="cases" element={<CaseManagement />} />
+          <Route path="evidence" element={<EvidenceManagement />} />
+          <Route path="settings" element={<PoliceSettings />} />
+        </Route>
 
         {/* ================= FIRE ================= */}
         <Route
