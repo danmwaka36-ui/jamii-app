@@ -1,28 +1,33 @@
 import { Link, useLocation } from "react-router-dom";
 import {
-  FaBroadcastTower,
-  FaCarSide,
+  FaCar,
+  FaChartBar,
   FaChartLine,
-  FaChartPie,
-  FaClipboardList,
   FaComments,
   FaCog,
   FaExclamationTriangle,
   FaFileAlt,
-  FaFingerprint,
+  FaFolderOpen,
   FaMapMarkedAlt,
   FaShieldAlt,
   FaSignOutAlt,
+  FaTimes,
   FaUserShield,
+  FaUsers,
 } from "react-icons/fa";
 
 import { logoutUser } from "../../services/authService";
+
+type PoliceSidebarProps = {
+  mobileOpen: boolean;
+  onClose: () => void;
+};
 
 const menuItems = [
   {
     label: "Dashboard",
     path: "/police",
-    icon: <FaChartPie />,
+    icon: <FaChartBar />,
   },
   {
     label: "Active Incidents",
@@ -32,17 +37,17 @@ const menuItems = [
   {
     label: "Dispatch Centre",
     path: "/police/dispatch",
-    icon: <FaBroadcastTower />,
+    icon: <FaShieldAlt />,
   },
   {
-    label: "Police Officers",
+    label: "Officers",
     path: "/police/officers",
-    icon: <FaUserShield />,
+    icon: <FaUsers />,
   },
   {
     label: "Patrol Vehicles",
     path: "/police/vehicles",
-    icon: <FaCarSide />,
+    icon: <FaCar />,
   },
   {
     label: "Live GIS Map",
@@ -52,16 +57,16 @@ const menuItems = [
   {
     label: "Case Management",
     path: "/police/cases",
-    icon: <FaFileAlt />,
+    icon: <FaFolderOpen />,
   },
   {
     label: "Evidence Management",
     path: "/police/evidence",
-    icon: <FaFingerprint />,
+    icon: <FaFileAlt />,
   },
   {
     label: "Crime Analytics",
-    path: "/police/crime-analytics",
+    path: "/police/crimeanalytics",
     icon: <FaChartLine />,
   },
   {
@@ -72,12 +77,12 @@ const menuItems = [
   {
     label: "Incident Reports",
     path: "/police/reports",
-    icon: <FaClipboardList />,
+    icon: <FaFileAlt />,
   },
   {
-    label: "Performance Analytics",
+    label: "Analytics",
     path: "/police/analytics",
-    icon: <FaChartLine />,
+    icon: <FaChartBar />,
   },
   {
     label: "Settings",
@@ -86,7 +91,10 @@ const menuItems = [
   },
 ];
 
-export default function PoliceSidebar() {
+export default function PoliceSidebar({
+  mobileOpen,
+  onClose,
+}: PoliceSidebarProps) {
   const location = useLocation();
 
   async function handleLogout() {
@@ -95,69 +103,121 @@ export default function PoliceSidebar() {
   }
 
   return (
-    <aside className="fixed left-0 top-0 z-50 flex h-screen w-72 flex-col border-r border-blue-900 bg-slate-950 text-white">
-      <div className="border-b border-slate-800 p-6">
-        <div className="flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-600">
-            <FaShieldAlt className="text-2xl" />
-          </div>
-
-          <div>
-            <h1 className="text-2xl font-bold">Police Command</h1>
-            <p className="text-sm text-slate-400">
-              Operations Centre
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <nav className="flex-1 space-y-2 overflow-y-auto px-4 py-6">
-        {menuItems.map((item) => {
-          const active =
-            location.pathname === item.path ||
-            (item.path !== "/police" &&
-              location.pathname.startsWith(`${item.path}/`));
-
-          return (
-            <Link
-              key={item.path}
-              to={item.path}
-              className={`flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all ${
-                active
-                  ? "bg-blue-600 text-white shadow-lg shadow-blue-950/40"
-                  : "text-slate-300 hover:bg-slate-800 hover:text-white"
-              }`}
-            >
-              <span className="text-lg">{item.icon}</span>
-              <span>{item.label}</span>
-            </Link>
-          );
-        })}
-      </nav>
-
-      <div className="border-t border-slate-800 p-5">
-        <div className="rounded-2xl border border-blue-800 bg-blue-950/30 p-5">
-          <p className="font-semibold">Police Operations</p>
-
-          <p className="mt-2 text-sm leading-6 text-blue-200">
-            Coordinate incidents, patrols, investigations, evidence,
-            communication and public safety response.
-          </p>
-        </div>
-
+    <>
+      {mobileOpen && (
         <button
-          type="button"
-          onClick={handleLogout}
-          className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-red-600 py-3 font-bold text-white transition hover:bg-red-700"
-        >
-          <FaSignOutAlt />
-          Logout
-        </button>
+          onClick={onClose}
+          className="fixed inset-0 z-40 bg-slate-950/60 backdrop-blur-sm lg:hidden"
+        />
+      )}
 
-        <p className="mt-8 text-center text-xs text-slate-500">
-          © 2026 Jamii Police Operations
-        </p>
-      </div>
-    </aside>
+      <aside
+        className={`fixed inset-y-0 left-0 z-50 flex h-screen w-72 flex-col border-r border-slate-800 bg-slate-950 text-white shadow-2xl transition-transform duration-300 lg:translate-x-0 ${
+          mobileOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
+      >
+        {/* Header */}
+
+        <div className="flex items-center justify-between border-b border-slate-800 p-6">
+
+          <div className="flex items-center gap-3">
+
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-600">
+              <FaShieldAlt className="text-2xl" />
+            </div>
+
+            <div>
+              <h1 className="text-xl font-bold">
+                Police
+              </h1>
+
+              <p className="text-sm text-slate-400">
+                Command Centre
+              </p>
+            </div>
+
+          </div>
+
+          <button
+            onClick={onClose}
+            className="rounded-xl p-2 hover:bg-slate-800 lg:hidden"
+          >
+            <FaTimes />
+          </button>
+
+        </div>
+
+        {/* Menu */}
+
+        <nav
+          onClick={onClose}
+          className="flex-1 overflow-y-auto px-4 py-5 space-y-2"
+        >
+          {menuItems.map((item) => {
+            const active =
+              location.pathname === item.path ||
+              location.pathname.startsWith(item.path + "/");
+
+            return (
+              <Link
+                key={item.path}
+                to={item.path}
+                className={`flex items-center gap-3 rounded-xl px-4 py-3 transition ${
+                  active
+                    ? "bg-blue-600 text-white shadow-lg"
+                    : "text-slate-300 hover:bg-slate-800 hover:text-white"
+                }`}
+              >
+                <span className="text-lg">
+                  {item.icon}
+                </span>
+
+                <span className="font-medium">
+                  {item.label}
+                </span>
+              </Link>
+            );
+          })}
+        </nav>
+
+        {/* Footer */}
+
+        <div className="border-t border-slate-800 p-5">
+
+          <div className="rounded-2xl bg-blue-950/30 border border-blue-900 p-4">
+
+            <div className="flex items-center gap-2">
+
+              <FaUserShield className="text-blue-400" />
+
+              <h3 className="font-bold">
+                Police Access
+              </h3>
+
+            </div>
+
+            <p className="mt-3 text-sm leading-6 text-slate-300">
+              Police Command Centre for incident response,
+              investigations and patrol management.
+            </p>
+
+          </div>
+
+          <button
+            onClick={handleLogout}
+            className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-red-600 py-3 font-bold hover:bg-red-700"
+          >
+            <FaSignOutAlt />
+
+            Logout
+          </button>
+
+          <p className="mt-5 text-center text-xs text-slate-500">
+            © 2026 Jamii Police
+          </p>
+
+        </div>
+      </aside>
+    </>
   );
 }
