@@ -1,179 +1,738 @@
-import { useEffect, useMemo, useState } from "react";
-import { collection, onSnapshot, query } from "firebase/firestore";
 import {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+
+import {
+  FaCopy,
+  FaEdit,
+  FaKey,
+  FaPlus,
   FaShieldAlt,
-  FaUserShield,
+  FaTrash,
   FaUsers,
-  FaCheckCircle,
+  FaUserShield,
 } from "react-icons/fa";
 
-import { db } from "../../../firebase/firebase";
-import { rolesConfig, type AppRole } from "../../../config/roles";
+import PageHeader from "../../../components/common/PageHeader";
+import SearchBar from "../../../components/common/SearchBar";
+import StatusBadge from "../../../components/common/StatusBadge";
+import ConfirmDialog from "../../../components/common/ConfirmDialog";
 
-type AppUser = {
-  id: string;
-  role?: string;
-};
+import PermissionEditor from "../../../components/admin/permissions/PermissionEditor";
+import RoleEditor from "../../../components/admin/permissions/RoleEditor";
+
+import {
+  countRolePermissions,
+  defaultRoles,
+  type PlatformRole,
+} from "../../../config/adminPermissions";
+
+type RoleEditorMode =
+  | "create"
+  | "edit"
+  | "duplicate";
+
+type RoleTypeFilter =
+  | "all"
+  | "system"
+  | "custom";
+
+type StatusFilter =
+  | "all"
+  | "Active"
+  | "Inactive";
+
+const LOCAL_STORAGE_KEY = "jamii-platform-roles";
+
+function cloneRole(role: PlatformRole): PlatformRole {
+  return {
+    ...role,
+    permissions: Object.fromEntries(
+      Object.entries(role.permissions).map(
+        ([moduleId, actions]) => [
+          moduleId,
+          [...actions],
+        ]
+      )
+    ),
+  };
+}
+
+function loadStoredRoles(): PlatformRole[] {
+  try {
+    const savedRoles = localStorage.getItem(
+      LOCAL_STORAGE_KEY
+    );
+
+    if (!savedRoles) {
+      return defaultRoles.map(cloneRole);
+    }
+
+    const parsedRoles = JSON.parse(
+      savedRoles
+    ) as PlatformRole[];
+
+    if (!Array.isArray(parsedRoles)) {
+      return defaultRoles.map(cloneRole);
+    }
+
+    return parsedRoles.map(cloneRole);
+  } catch (error) {
+    console.error(
+      "Failed to load saved roles:",
+      error
+    );
+
+    return defaultRoles.map(cloneRole);
+  }
+}
 
 export default function RoleManagement() {
-  const [users, setUsers] = useState<AppUser[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [roles, setRoles] = useState<
+    PlatformRole[]
+  >(() => loadStoredRoles());
+
+  const [search, setSearch] = useState("");
+
+  const [statusFilter, setStatusFilter] =
+    useState<StatusFilter>("all");
+
+  const [roleTypeFilter, setRoleTypeFilter] =
+    useState<RoleTypeFilter>("all");
+
+  const [roleEditorOpen, setRoleEditorOpen] =
+    useState(false);
+
+  const [roleEditorMode, setRoleEditorMode] =
+    useState<RoleEditorMode>("create");
+
+  const [selectedRole, setSelectedRole] =
+    useState<PlatformRole | null>(null);
+
+  const [
+    permissionEditorOpen,
+    setPermissionEditorOpen,
+  ] = useState(false);
+
+  const [deleteDialogOpen, setDeleteDialogOpen] =
+    useState(false);
+
+  const [roleToDelete, setRoleToDelete] =
+    useState<PlatformRole | null>(null);
+
+  const [message, setMessage] = useState("");
 
   useEffect(() => {
-    const q = query(collection(db, "users"));
+    localStorage.setItem(
+      LOCAL_STORAGE_KEY,
+      JSON.stringify(roles)
+    );
+  }, [roles]);
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const data = snapshot.docs.map((item) => ({
-        id: item.id,
-        ...item.data(),
-      })) as AppUser[];
+  const filteredRoles = useMemo(() => {
+    const query = search
+      .trim()
+      .toLowerCase();
 
-      setUsers(data);
-      setLoading(false);
+    return roles.filter((role) => {
+      const matchesSearch =
+        !query ||
+        role.name
+          .toLowerCase()
+          .includes(query) ||
+        role.description
+          .toLowerCase()
+          .includes(query);
+
+      const matchesStatus =
+        statusFilter === "all" ||
+        role.status === statusFilter;
+
+      const matchesType =
+        roleTypeFilter === "all" ||
+        (roleTypeFilter === "system" &&
+          role.systemRole) ||
+        (roleTypeFilter === "custom" &&
+          !role.systemRole);
+
+      return (
+        matchesSearch &&
+        matchesStatus &&
+        matchesType
+      );
+    });
+  }, [
+    roles,
+    roleTypeFilter,
+    search,
+    statusFilter,
+  ]);
+
+  const statistics = useMemo(() => {
+    return {
+      total: roles.length,
+
+      active: roles.filter(
+        (role) => role.status === "Active"
+      ).length,
+
+      system: roles.filter(
+        (role) => role.systemRole
+      ).length,
+
+      custom: roles.filter(
+        (role) => !role.systemRole
+      ).length,
+
+      users: roles.reduce(
+        (total, role) =>
+          total + role.userCount,
+        0
+      ),
+
+      permissions: roles.reduce(
+        (total, role) =>
+          total +
+          countRolePermissions(role),
+        0
+      ),
+    };
+  }, [roles]);
+
+  function openCreateRole() {
+    setSelectedRole(null);
+    setRoleEditorMode("create");
+    setRoleEditorOpen(true);
+  }
+
+  function openEditRole(
+    role: PlatformRole
+  ) {
+    setSelectedRole(cloneRole(role));
+    setRoleEditorMode("edit");
+    setRoleEditorOpen(true);
+  }
+
+  function openDuplicateRole(
+    role: PlatformRole
+  ) {
+    setSelectedRole(cloneRole(role));
+    setRoleEditorMode("duplicate");
+    setRoleEditorOpen(true);
+  }
+
+  function openPermissionEditor(
+    role: PlatformRole
+  ) {
+    setSelectedRole(cloneRole(role));
+    setPermissionEditorOpen(true);
+  }
+
+  function requestDeleteRole(
+    role: PlatformRole
+  ) {
+    if (role.systemRole) {
+      setMessage(
+        "Protected system roles cannot be deleted."
+      );
+
+      return;
+    }
+
+    setRoleToDelete(role);
+    setDeleteDialogOpen(true);
+  }
+
+  function saveRole(
+    savedRole: PlatformRole
+  ) {
+    setRoles((currentRoles) => {
+      const existingRole =
+        currentRoles.find(
+          (role) =>
+            role.id === savedRole.id
+        );
+
+      if (existingRole) {
+        return currentRoles.map((role) =>
+          role.id === savedRole.id
+            ? cloneRole(savedRole)
+            : role
+        );
+      }
+
+      return [
+        cloneRole(savedRole),
+        ...currentRoles,
+      ];
     });
 
-    return () => unsubscribe();
-  }, []);
+    setRoleEditorOpen(false);
+    setSelectedRole(null);
 
-  const roleRows = useMemo(() => {
-    return Object.entries(rolesConfig).map(([role, config]) => {
-      const count = users.filter((user) => user.role === role).length;
+    setMessage(
+      roleEditorMode === "edit"
+        ? "Role updated successfully."
+        : roleEditorMode === "duplicate"
+          ? "Role duplicated successfully."
+          : "Role created successfully."
+    );
+  }
 
-      return {
-        role: role as AppRole,
-        label: config.label,
-        dashboardPath: config.dashboardPath,
-        permissions: [...config.permissions],
-        count,
-      };
-    });
-  }, [users]);
-
-  const totalRoles = roleRows.length;
-  const totalPermissions = roleRows.reduce(
-    (sum, role) => sum + role.permissions.length,
-    0
-  );
-  const adminCount =
-    roleRows.find((role) => role.role === "admin")?.count || 0;
-  const responderCount = roleRows
-    .filter((role) =>
-      ["police", "fire", "ambulance", "county", "redcross", "nyumbakumi"].includes(
-        role.role
+  function savePermissions(
+    updatedRole: PlatformRole
+  ) {
+    setRoles((currentRoles) =>
+      currentRoles.map((role) =>
+        role.id === updatedRole.id
+          ? cloneRole(updatedRole)
+          : role
       )
-    )
-    .reduce((sum, role) => sum + role.count, 0);
+    );
+
+    setPermissionEditorOpen(false);
+    setSelectedRole(null);
+
+    setMessage(
+      `Permissions for ${updatedRole.name} were saved successfully.`
+    );
+  }
+
+  function confirmDeleteRole() {
+    if (!roleToDelete) {
+      return;
+    }
+
+    setRoles((currentRoles) =>
+      currentRoles.filter(
+        (role) =>
+          role.id !== roleToDelete.id
+      )
+    );
+
+    setMessage(
+      `${roleToDelete.name} was deleted.`
+    );
+
+    setDeleteDialogOpen(false);
+    setRoleToDelete(null);
+  }
+
+  function clearFilters() {
+    setSearch("");
+    setStatusFilter("all");
+    setRoleTypeFilter("all");
+  }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-extrabold text-slate-950">
-          🏷️ Role Management
-        </h1>
+    <div className="space-y-7">
+      <PageHeader
+        title="Roles & Permissions"
+        subtitle="Create platform roles, assign module access and manage enterprise permissions across Jamii App."
+        icon={<FaUserShield />}
+        badge="Enterprise RBAC"
+        badgeColor="purple"
+        actions={
+          <button
+            type="button"
+            onClick={openCreateRole}
+            className="flex items-center justify-center gap-2 rounded-xl bg-purple-600 px-5 py-3 font-bold text-white transition hover:bg-purple-700"
+          >
+            <FaPlus />
+            Create Role
+          </button>
+        }
+      />
 
-        <p className="mt-2 text-slate-600">
-          Manage platform roles, permissions and dashboard access governance.
-        </p>
-      </div>
+      {message && (
+        <div className="flex items-start justify-between gap-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-800">
+          <div>
+            <p className="font-bold">
+              Access management updated
+            </p>
 
-      <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <FaUserShield className="text-3xl text-purple-600" />
-          <p className="mt-4 text-sm text-slate-500">System Roles</p>
-          <h2 className="text-3xl font-extrabold">{totalRoles}</h2>
+            <p className="mt-1 text-sm">
+              {message}
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setMessage("")}
+            className="rounded-lg px-3 py-2 text-xs font-bold text-emerald-700 transition hover:bg-emerald-100"
+          >
+            Dismiss
+          </button>
         </div>
+      )}
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <FaCheckCircle className="text-3xl text-emerald-600" />
-          <p className="mt-4 text-sm text-slate-500">Permissions</p>
-          <h2 className="text-3xl font-extrabold">{totalPermissions}</h2>
-        </div>
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <FaUserShield className="text-2xl text-purple-600" />
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <FaShieldAlt className="text-3xl text-blue-600" />
-          <p className="mt-4 text-sm text-slate-500">Responders</p>
-          <h2 className="text-3xl font-extrabold">{responderCount}</h2>
-        </div>
+          <p className="mt-4 text-sm text-slate-500">
+            Total Roles
+          </p>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <FaUsers className="text-3xl text-red-600" />
-          <p className="mt-4 text-sm text-slate-500">Admins</p>
-          <h2 className="text-3xl font-extrabold">{adminCount}</h2>
-        </div>
-      </div>
-
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div className="border-b border-slate-100 px-6 py-5">
-          <h2 className="text-xl font-bold text-slate-950">
-            Role Governance Matrix
-          </h2>
-          <p className="text-sm text-slate-500">
-            Roles are currently managed from the centralized role configuration.
+          <p className="mt-1 text-3xl font-extrabold text-slate-950">
+            {statistics.total}
           </p>
         </div>
 
-        {loading ? (
-          <div className="p-8 text-slate-500">Loading role data...</div>
-        ) : (
-          <div className="divide-y divide-slate-100">
-            {roleRows.map((role) => (
-              <div key={role.role} className="p-6">
-                <div className="grid gap-5 xl:grid-cols-[220px_120px_1fr_180px]">
-                  <div>
-                    <p className="text-lg font-bold text-slate-950">
-                      {role.label}
-                    </p>
-                    <p className="mt-1 font-mono text-xs text-slate-500">
-                      {role.role}
-                    </p>
-                  </div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <FaShieldAlt className="text-2xl text-emerald-600" />
 
-                  <div>
-                    <p className="text-sm text-slate-500">Users</p>
-                    <p className="mt-1 text-2xl font-extrabold text-blue-700">
-                      {role.count}
-                    </p>
-                  </div>
+          <p className="mt-4 text-sm text-slate-500">
+            Active Roles
+          </p>
 
-                  <div>
-                    <p className="text-sm text-slate-500">Permissions</p>
+          <p className="mt-1 text-3xl font-extrabold text-emerald-700">
+            {statistics.active}
+          </p>
+        </div>
 
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {role.permissions.map((permission) => (
-                        <span
-                          key={permission}
-                          className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700"
-                        >
-                          {permission}
-                        </span>
-                      ))}
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <FaKey className="text-2xl text-blue-600" />
+
+          <p className="mt-4 text-sm text-slate-500">
+            System Roles
+          </p>
+
+          <p className="mt-1 text-3xl font-extrabold text-blue-700">
+            {statistics.system}
+          </p>
+        </div>
+
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <FaCopy className="text-2xl text-orange-600" />
+
+          <p className="mt-4 text-sm text-slate-500">
+            Custom Roles
+          </p>
+
+          <p className="mt-1 text-3xl font-extrabold text-orange-700">
+            {statistics.custom}
+          </p>
+        </div>
+
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <FaUsers className="text-2xl text-cyan-600" />
+
+          <p className="mt-4 text-sm text-slate-500">
+            Assigned Users
+          </p>
+
+          <p className="mt-1 text-3xl font-extrabold text-cyan-700">
+            {statistics.users}
+          </p>
+        </div>
+
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <FaKey className="text-2xl text-indigo-600" />
+
+          <p className="mt-4 text-sm text-slate-500">
+            Permissions
+          </p>
+
+          <p className="mt-1 text-3xl font-extrabold text-indigo-700">
+            {statistics.permissions}
+          </p>
+        </div>
+      </section>
+
+      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+        <div className="grid gap-4 xl:grid-cols-[1fr_220px_220px_auto]">
+          <SearchBar
+            value={search}
+            onChange={setSearch}
+            placeholder="Search roles by name or responsibility..."
+            ariaLabel="Search roles"
+          />
+
+          <select
+            value={statusFilter}
+            onChange={(event) =>
+              setStatusFilter(
+                event.target
+                  .value as StatusFilter
+              )
+            }
+            className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-purple-500 focus:ring-4 focus:ring-purple-100"
+          >
+            <option value="all">
+              All Statuses
+            </option>
+
+            <option value="Active">
+              Active
+            </option>
+
+            <option value="Inactive">
+              Inactive
+            </option>
+          </select>
+
+          <select
+            value={roleTypeFilter}
+            onChange={(event) =>
+              setRoleTypeFilter(
+                event.target
+                  .value as RoleTypeFilter
+              )
+            }
+            className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-purple-500 focus:ring-4 focus:ring-purple-100"
+          >
+            <option value="all">
+              All Role Types
+            </option>
+
+            <option value="system">
+              System Roles
+            </option>
+
+            <option value="custom">
+              Custom Roles
+            </option>
+          </select>
+
+          <button
+            type="button"
+            onClick={clearFilters}
+            className="rounded-xl border border-slate-200 bg-slate-50 px-5 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-100"
+          >
+            Clear Filters
+          </button>
+        </div>
+      </section>
+
+      {filteredRoles.length === 0 ? (
+        <section className="rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center shadow-sm">
+          <FaUserShield className="mx-auto text-5xl text-slate-300" />
+
+          <h2 className="mt-5 text-xl font-bold text-slate-900">
+            No roles found
+          </h2>
+
+          <p className="mt-2 text-sm text-slate-500">
+            Try changing your search or role filters.
+          </p>
+
+          <button
+            type="button"
+            onClick={clearFilters}
+            className="mt-6 rounded-xl bg-purple-600 px-5 py-3 font-bold text-white transition hover:bg-purple-700"
+          >
+            Reset Filters
+          </button>
+        </section>
+      ) : (
+        <section className="grid gap-5 xl:grid-cols-2">
+          {filteredRoles.map((role) => {
+            const permissionCount =
+              countRolePermissions(role);
+
+            return (
+              <article
+                key={role.id}
+                className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1 hover:border-purple-200 hover:shadow-md"
+              >
+                <div className="p-5 sm:p-6">
+                  <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
+                    <div
+                      className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl text-2xl ${
+                        role.systemRole
+                          ? "bg-blue-100 text-blue-700"
+                          : "bg-purple-100 text-purple-700"
+                      }`}
+                    >
+                      {role.systemRole ? (
+                        <FaShieldAlt />
+                      ) : (
+                        <FaUserShield />
+                      )}
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <h2 className="text-xl font-extrabold text-slate-950">
+                            {role.name}
+                          </h2>
+
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            <StatusBadge
+                              status={role.status}
+                            />
+
+                            <span
+                              className={`rounded-full px-3 py-1 text-xs font-bold ${
+                                role.systemRole
+                                  ? "bg-blue-100 text-blue-700"
+                                  : "bg-purple-100 text-purple-700"
+                              }`}
+                            >
+                              {role.systemRole
+                                ? "System Role"
+                                : "Custom Role"}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <p className="mt-4 text-sm leading-6 text-slate-500">
+                        {role.description}
+                      </p>
                     </div>
                   </div>
 
-                  <div>
-                    <p className="text-sm text-slate-500">Dashboard</p>
-                    <p className="mt-2 rounded-xl bg-purple-50 px-3 py-2 text-sm font-bold text-purple-700">
-                      {role.dashboardPath}
-                    </p>
+                  <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                    <div className="rounded-xl bg-slate-50 p-4">
+                      <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                        Users
+                      </p>
+
+                      <p className="mt-1 text-2xl font-extrabold text-blue-700">
+                        {role.userCount}
+                      </p>
+                    </div>
+
+                    <div className="rounded-xl bg-slate-50 p-4">
+                      <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                        Permissions
+                      </p>
+
+                      <p className="mt-1 text-2xl font-extrabold text-purple-700">
+                        {permissionCount}
+                      </p>
+                    </div>
+
+                    <div className="col-span-2 rounded-xl bg-slate-50 p-4 sm:col-span-1">
+                      <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                        Modules
+                      </p>
+
+                      <p className="mt-1 text-2xl font-extrabold text-emerald-700">
+                        {
+                          Object.keys(
+                            role.permissions
+                          ).filter(
+                            (moduleId) =>
+                              role.permissions[
+                                moduleId
+                              ]?.length > 0
+                          ).length
+                        }
+                      </p>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
 
-      <div className="rounded-2xl border border-blue-100 bg-blue-50 p-6">
-        <h2 className="text-lg font-bold text-blue-800">
-          SaaS Permission Roadmap
+                <div className="grid gap-2 border-t border-slate-100 bg-slate-50 p-4 sm:grid-cols-2 xl:grid-cols-4">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      openPermissionEditor(role)
+                    }
+                    className="flex items-center justify-center gap-2 rounded-xl bg-purple-600 px-4 py-3 text-sm font-bold text-white transition hover:bg-purple-700"
+                  >
+                    <FaKey />
+                    Permissions
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      openEditRole(role)
+                    }
+                    className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-100"
+                  >
+                    <FaEdit />
+                    Edit
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      openDuplicateRole(role)
+                    }
+                    className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-100"
+                  >
+                    <FaCopy />
+                    Duplicate
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      requestDeleteRole(role)
+                    }
+                    disabled={Boolean(
+                      role.systemRole
+                    )}
+                    className="flex items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <FaTrash />
+                    Delete
+                  </button>
+                </div>
+              </article>
+            );
+          })}
+        </section>
+      )}
+
+      <section className="rounded-2xl border border-purple-100 bg-purple-50 p-5 text-sm leading-6 text-purple-800">
+        <h2 className="font-bold text-purple-950">
+          Enterprise permission management
         </h2>
 
-        <p className="mt-3 text-sm leading-6 text-blue-700">
-          The next version will allow admins to create custom roles, edit
-          permissions, assign module access and enforce permissions throughout
-          the platform.
+        <p className="mt-2">
+          Role changes are currently saved in this browser using
+          local storage. Later, this page will synchronize with
+          Firestore collections for roles, permissions and user
+          assignments.
         </p>
-      </div>
+      </section>
+
+      <RoleEditor
+        open={roleEditorOpen}
+        role={selectedRole}
+        mode={roleEditorMode}
+        onClose={() => {
+          setRoleEditorOpen(false);
+          setSelectedRole(null);
+        }}
+        onSave={saveRole}
+      />
+
+      <PermissionEditor
+        open={permissionEditorOpen}
+        role={selectedRole}
+        onClose={() => {
+          setPermissionEditorOpen(false);
+          setSelectedRole(null);
+        }}
+        onSave={savePermissions}
+      />
+
+      <ConfirmDialog
+        open={deleteDialogOpen}
+        title="Delete Role"
+        message={
+          roleToDelete
+            ? `Delete the "${roleToDelete.name}" role? This action cannot be undone.`
+            : "Delete this role?"
+        }
+        confirmText="Delete Role"
+        confirmColor="red"
+        onCancel={() => {
+          setDeleteDialogOpen(false);
+          setRoleToDelete(null);
+        }}
+        onConfirm={confirmDeleteRole}
+      />
     </div>
   );
 }
