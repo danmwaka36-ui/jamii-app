@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Route, Routes } from "react-router-dom";
 
 import Home from "../pages/public/Home";
 import About from "../pages/public/About";
@@ -11,6 +11,7 @@ import Register from "../pages/auth/Register";
 import DashboardLayout from "../layouts/DashboardLayout";
 import AdminLayout from "../layouts/AdminLayout";
 import PoliceLayout from "../layouts/police/PoliceLayout";
+import RedCrossLayout from "../layouts/redcross/RedCrossLayout";
 
 import Dashboard from "../pages/citizen/Dashboard";
 import ReportEmergency from "../pages/citizen/ReportEmergency";
@@ -34,8 +35,23 @@ import PoliceSettings from "../pages/police/settings/PoliceSettings";
 import FireDashboard from "../pages/fire/FireDashboard";
 import AmbulanceDashboard from "../pages/ambulance/AmbulanceDashboard";
 import CountyDashboard from "../pages/county/CountyDashboard";
-import RedCrossDashboard from "../pages/redcross/RedCrossDashboard";
 import NyumbaKumiDashboard from "../pages/nyumbakumi/NyumbaKumiDashboard";
+
+import RedCrossDashboard from "../pages/redcross/RedCrossDashboard";
+import RedCrossIncidents from "../pages/redcross/incidents/RedCrossIncidents";
+import RedCrossDispatch from "../pages/redcross/dispatch/RedCrossDispatch";
+import RedCrossResponders from "../pages/redcross/responders/RedCrossResponders";
+import RedCrossVehicles from "../pages/redcross/vehicles/RedCrossVehicles";
+import RedCrossDrivers from "../pages/redcross/drivers/RedCrossDrivers";
+import MedicalSupport from "../pages/redcross/medical/MedicalSupport";
+import ShelterManagement from "../pages/redcross/shelters/ShelterManagement";
+import ReliefInventory from "../pages/redcross/inventory/ReliefInventory";
+import BloodCoordination from "../pages/redcross/blood/BloodCoordination";
+import RedCrossGIS from "../pages/redcross/gis/RedCrossGIS";
+import RedCrossReports from "../pages/redcross/reports/RedCrossReports";
+import RedCrossCommunication from "../pages/redcross/communication/RedCrossCommunication";
+import RedCrossAnalytics from "../pages/redcross/analytics/RedCrossAnalytics";
+import RedCrossSettings from "../pages/redcross/settings/RedCrossSettings";
 
 import AdminDashboard from "../pages/admin/AdminDashboard";
 import UserManagement from "../pages/admin/users/UserManagement";
@@ -92,7 +108,6 @@ export default function AppRouter() {
           }
         >
           <Route index element={<AdminDashboard />} />
-
           <Route path="users" element={<UserManagement />} />
           <Route path="roles" element={<RoleManagement />} />
           <Route path="emergencies" element={<EmergencyManagement />} />
@@ -122,6 +137,88 @@ export default function AppRouter() {
           <Route path="settings" element={<PoliceSettings />} />
         </Route>
 
+        {/* ================= RED CROSS ================= */}
+        <Route
+          path="/redcross"
+          element={
+            <RoleRoute allowedRoles={["redcross", "admin"]}>
+              <RedCrossLayout />
+            </RoleRoute>
+          }
+        >
+          <Route index element={<RedCrossDashboard />} />
+
+          <Route
+            path="incidents"
+            element={<RedCrossIncidents />}
+          />
+
+          <Route
+            path="dispatch"
+            element={<RedCrossDispatch />}
+          />
+
+          <Route
+            path="responders"
+            element={<RedCrossResponders />}
+          />
+
+          <Route
+            path="vehicles"
+            element={<RedCrossVehicles />}
+          />
+
+          <Route
+            path="drivers"
+            element={<RedCrossDrivers />}
+          />
+
+          <Route
+            path="medical"
+            element={<MedicalSupport />}
+          />
+
+          <Route
+            path="shelters"
+            element={<ShelterManagement />}
+          />
+
+          <Route
+            path="inventory"
+            element={<ReliefInventory />}
+          />
+
+          <Route
+            path="blood"
+            element={<BloodCoordination />}
+          />
+
+          <Route
+            path="gis"
+            element={<RedCrossGIS />}
+          />
+
+          <Route
+            path="reports"
+            element={<RedCrossReports />}
+          />
+
+          <Route
+            path="communication"
+            element={<RedCrossCommunication />}
+          />
+
+          <Route
+            path="analytics"
+            element={<RedCrossAnalytics />}
+          />
+
+          <Route
+            path="settings"
+            element={<RedCrossSettings />}
+          />
+        </Route>
+
         {/* ================= FIRE ================= */}
         <Route
           path="/fire"
@@ -148,16 +245,6 @@ export default function AppRouter() {
           element={
             <RoleRoute allowedRoles={["county", "admin"]}>
               <CountyDashboard />
-            </RoleRoute>
-          }
-        />
-
-        {/* ================= RED CROSS ================= */}
-        <Route
-          path="/redcross"
-          element={
-            <RoleRoute allowedRoles={["redcross", "admin"]}>
-              <RedCrossDashboard />
             </RoleRoute>
           }
         />
