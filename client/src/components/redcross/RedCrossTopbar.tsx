@@ -24,6 +24,9 @@ import {
   FaWater,
   FaShieldAlt,
   FaHospital,
+  FaVolumeUp,
+  FaVolumeMute,
+  FaPlay,
 } from "react-icons/fa";
 
 import {
@@ -73,19 +76,36 @@ type IncidentReport = {
   id: string;
   title: string;
   message: string;
+
   type?: string;
+
+  redcrossRelevant?: boolean;
+
   emergencyType?: string;
   incidentType?: string;
+
   priority?: string;
+  severity?: string;
+
   status?: string;
+
   assignedRole?: string;
+  assignedTeam?: string;
+
   assignedAgency?: string;
   agency?: string;
+
   reportedBy?: string;
+  reporterName?: string;
+  reporterPhone?: string;
+
   location?: unknown;
+
   latitude?: number;
   longitude?: number;
+
   createdAt?: TimestampLike;
+  updatedAt?: TimestampLike;
 };
 
 const searchItems: SearchItem[] = [
@@ -283,7 +303,9 @@ function normalizeIncident(
   const priority =
     typeof data.priority === "string"
       ? data.priority
-      : "High";
+      : typeof data.severity === "string"
+        ? data.severity
+        : "High";
 
   const title =
     typeof data.title === "string"
@@ -302,48 +324,92 @@ function normalizeIncident(
     title,
     message,
     type,
+
+    redcrossRelevant:
+      data.redcrossRelevant === true,
+
     emergencyType:
       typeof data.emergencyType === "string"
         ? data.emergencyType
         : undefined,
+
     incidentType:
       typeof data.incidentType === "string"
         ? data.incidentType
         : undefined,
+
     priority,
+
+    severity:
+      typeof data.severity === "string"
+        ? data.severity
+        : undefined,
+
     status:
       typeof data.status === "string"
         ? data.status
         : "Incoming",
+
     assignedRole:
       typeof data.assignedRole === "string"
         ? data.assignedRole
         : undefined,
+
+    assignedTeam:
+      typeof data.assignedTeam === "string"
+        ? data.assignedTeam
+        : undefined,
+
     assignedAgency:
       typeof data.assignedAgency === "string"
         ? data.assignedAgency
         : undefined,
+
     agency:
       typeof data.agency === "string"
         ? data.agency
         : undefined,
+
     reportedBy:
       typeof data.reportedBy === "string"
         ? data.reportedBy
         : typeof data.userId === "string"
           ? data.userId
-          : undefined,
+          : typeof data.reporterId === "string"
+            ? data.reporterId
+            : undefined,
+
+    reporterName:
+      typeof data.reporterName === "string"
+        ? data.reporterName
+        : undefined,
+
+    reporterPhone:
+      typeof data.phone === "string"
+        ? data.phone
+        : undefined,
+
     location: data.location,
+
     latitude: coordinates.latitude,
+
     longitude: coordinates.longitude,
+
     createdAt:
       data.createdAt as TimestampLike | undefined,
+
+    updatedAt:
+      data.updatedAt as TimestampLike | undefined,
   };
 }
 
 function isRelevantToRedCross(
   incident: IncidentReport
 ): boolean {
+  if (incident.redcrossRelevant === true) {
+    return true;
+  }
+
   const role =
     incident.assignedRole?.toLowerCase().trim();
 
@@ -358,6 +424,8 @@ function isRelevantToRedCross(
     "red cross",
     "kenya red cross",
     "kenya redcross",
+    "redcross society",
+    "kenya red cross society",
   ];
 
   if (
@@ -381,15 +449,32 @@ function isRelevantToRedCross(
     return true;
   }
 
-  /*
-   * Unassigned reports remain visible to the
-   * Emergency Operations Centre during initial
-   * deployment.
-   *
-   * Firebase Security Rules must still control
-   * actual document-level access.
-   */
-  if (!role && !agency && !agencyName) {
+  const humanitarianTypes = [
+    "fire",
+    "medical",
+    "flood",
+    "accident",
+    "community alert",
+    "disaster",
+    "rescue",
+    "humanitarian",
+  ];
+
+  const type =
+    incident.type?.toLowerCase().trim();
+
+  if (
+    type &&
+    humanitarianTypes.includes(type)
+  ) {
+    return true;
+  }
+
+  if (
+    !role &&
+    !agency &&
+    !agencyName
+  ) {
     return true;
   }
 
@@ -421,9 +506,7 @@ function getIncidentIcon(type?: string) {
   const normalized =
     type?.toLowerCase() ?? "";
 
-  if (
-    normalized.includes("fire")
-  ) {
+  if (normalized.includes("fire")) {
     return <FaFire />;
   }
 
@@ -449,9 +532,7 @@ function getIncidentIcon(type?: string) {
     return <FaShieldAlt />;
   }
 
-  if (
-    normalized.includes("hospital")
-  ) {
+  if (normalized.includes("hospital")) {
     return <FaHospital />;
   }
 
@@ -512,18 +593,35 @@ export default function RedCrossTopbar({
   ] = useState(new Date());
 
   /*
-   * Stores incidents that have already been
-   * processed by this browser session.
+   * ============================================================
+   * AUDIO STATE
+   * ============================================================
    */
+
+  const audioContextRef =
+    useRef<AudioContext | null>(null);
+
+  const audioUnlockedRef =
+    useRef(false);
+
+  const audioUnlockingRef =
+    useRef(false);
+
   const processedIncidents =
     useRef<Set<string>>(
       new Set()
     );
 
-  const audioContextRef =
-    useRef<AudioContext | null>(
-      null
-    );
+  const [
+    audioReady,
+    setAudioReady,
+  ] = useState(false);
+
+  /*
+   * ============================================================
+   * USER DISPLAY
+   * ============================================================
+   */
 
   const displayName =
     userProfile?.fullName ||
@@ -536,6 +634,12 @@ export default function RedCrossTopbar({
       ? "Response Coordinator"
       : userProfile?.role ||
         "Humanitarian User";
+
+  /*
+   * ============================================================
+   * SEARCH
+   * ============================================================
+   */
 
   const filteredSearchItems =
     useMemo(() => {
@@ -560,6 +664,12 @@ export default function RedCrossTopbar({
       );
     }, [search]);
 
+  /*
+   * ============================================================
+   * UNREAD
+   * ============================================================
+   */
+
   const unreadCount = useMemo(
     () =>
       notifications.filter(
@@ -568,6 +678,341 @@ export default function RedCrossTopbar({
       ).length,
     [notifications]
   );
+
+  /*
+   * ============================================================
+   * GET AUDIO CONTEXT
+   * ============================================================
+   */
+
+  const getAudioContext =
+    useCallback((): AudioContext | null => {
+      if (
+        typeof window ===
+        "undefined"
+      ) {
+        return null;
+      }
+
+      const AudioContextClass =
+        window.AudioContext ||
+        (
+          window as typeof window & {
+            webkitAudioContext?: typeof AudioContext;
+          }
+        ).webkitAudioContext;
+
+      if (!AudioContextClass) {
+        return null;
+      }
+
+      if (
+        !audioContextRef.current
+      ) {
+        audioContextRef.current =
+          new AudioContextClass();
+      }
+
+      return audioContextRef.current;
+    }, []);
+
+  /*
+   * ============================================================
+   * UNLOCK AUDIO
+   * ============================================================
+   *
+   * MUST happen from a user gesture.
+   */
+
+  const unlockAudio =
+    useCallback(async () => {
+      if (audioUnlockingRef.current) {
+        return;
+      }
+
+      audioUnlockingRef.current =
+        true;
+
+      try {
+        const context =
+          getAudioContext();
+
+        if (!context) {
+          setAudioReady(false);
+          return;
+        }
+
+        if (
+          context.state ===
+          "suspended"
+        ) {
+          await context.resume();
+        }
+
+        if (
+          context.state ===
+          "running"
+        ) {
+          audioUnlockedRef.current =
+            true;
+
+          setAudioReady(true);
+
+          console.log(
+            "[Red Cross Audio] Audio unlocked successfully."
+          );
+        } else {
+          audioUnlockedRef.current =
+            false;
+
+          setAudioReady(false);
+
+          console.warn(
+            "[Red Cross Audio] Audio context state:",
+            context.state
+          );
+        }
+      } catch (error) {
+        audioUnlockedRef.current =
+          false;
+
+        setAudioReady(false);
+
+        console.error(
+          "[Red Cross Audio] Unable to unlock audio:",
+          error
+        );
+      } finally {
+        audioUnlockingRef.current =
+          false;
+      }
+    }, [getAudioContext]);
+
+  /*
+   * ============================================================
+   * AUTOMATIC AUDIO UNLOCK AFTER USER INTERACTION
+   * ============================================================
+   */
+
+  useEffect(() => {
+    if (audioUnlockedRef.current) {
+      return;
+    }
+
+    const handleUserInteraction =
+      () => {
+        void unlockAudio();
+      };
+
+    const events = [
+      "click",
+      "pointerdown",
+      "touchstart",
+      "keydown",
+    ];
+
+    events.forEach(
+      (eventName) => {
+        document.addEventListener(
+          eventName,
+          handleUserInteraction,
+          {
+            once: false,
+            passive: true,
+          }
+        );
+      }
+    );
+
+    return () => {
+      events.forEach(
+        (eventName) => {
+          document.removeEventListener(
+            eventName,
+            handleUserInteraction
+          );
+        }
+      );
+    };
+  }, [unlockAudio]);
+
+  /*
+   * ============================================================
+   * EMERGENCY ALERT SOUND
+   * ============================================================
+   *
+   * Strong multi-tone EOC alarm.
+   */
+
+  const playEmergencyAlert =
+    useCallback(async () => {
+      try {
+        const context =
+          getAudioContext();
+
+        if (!context) {
+          console.warn(
+            "[Red Cross Audio] Web Audio API unavailable."
+          );
+
+          return false;
+        }
+
+        if (
+          context.state ===
+          "suspended"
+        ) {
+          await context.resume();
+        }
+
+        if (
+          context.state !==
+          "running"
+        ) {
+          setAudioReady(false);
+
+          console.warn(
+            "[Red Cross Audio] Context is not running."
+          );
+
+          return false;
+        }
+
+        audioUnlockedRef.current =
+          true;
+
+        setAudioReady(true);
+
+        const now =
+          context.currentTime;
+
+        /*
+         * Three emergency bursts.
+         */
+
+        const tones = [
+          {
+            start: 0,
+            frequency: 880,
+          },
+          {
+            start: 0.22,
+            frequency: 660,
+          },
+          {
+            start: 0.44,
+            frequency: 880,
+          },
+          {
+            start: 0.90,
+            frequency: 880,
+          },
+          {
+            start: 1.12,
+            frequency: 660,
+          },
+          {
+            start: 1.34,
+            frequency: 880,
+          },
+          {
+            start: 1.80,
+            frequency: 1046,
+          },
+          {
+            start: 2.02,
+            frequency: 784,
+          },
+          {
+            start: 2.24,
+            frequency: 1046,
+          },
+        ];
+
+        tones.forEach(
+          ({
+            start,
+            frequency,
+          }) => {
+            const oscillator =
+              context.createOscillator();
+
+            const gain =
+              context.createGain();
+
+            oscillator.type =
+              "square";
+
+            oscillator.frequency.setValueAtTime(
+              frequency,
+              now + start
+            );
+
+            gain.gain.setValueAtTime(
+              0.0001,
+              now + start
+            );
+
+            gain.gain.exponentialRampToValueAtTime(
+              0.22,
+              now + start + 0.025
+            );
+
+            gain.gain.exponentialRampToValueAtTime(
+              0.0001,
+              now + start + 0.17
+            );
+
+            oscillator.connect(
+              gain
+            );
+
+            gain.connect(
+              context.destination
+            );
+
+            oscillator.start(
+              now + start
+            );
+
+            oscillator.stop(
+              now + start + 0.19
+            );
+          }
+        );
+
+        console.log(
+          "[Red Cross Audio] Emergency alert played."
+        );
+
+        return true;
+      } catch (error) {
+        console.error(
+          "[Red Cross Audio] Emergency alert failed:",
+          error
+        );
+
+        return false;
+      }
+    }, [getAudioContext]);
+
+  /*
+   * ============================================================
+   * TEST ALERT
+   * ============================================================
+   */
+
+  const testAlertSound =
+    useCallback(async () => {
+      if (!audioUnlockedRef.current) {
+        return;
+      }
+
+      await playEmergencyAlert();
+    }, [
+      unlockAudio,
+      playEmergencyAlert,
+    ]);
 
   /*
    * ============================================================
@@ -591,7 +1036,7 @@ export default function RedCrossTopbar({
 
   /*
    * ============================================================
-   * KEYBOARD ESCAPE HANDLER
+   * ESCAPE
    * ============================================================
    */
 
@@ -663,14 +1108,12 @@ export default function RedCrossTopbar({
                   id: snapshotDoc.id,
 
                   title:
-                    typeof data.title ===
-                    "string"
+                    typeof data.title === "string"
                       ? data.title
                       : "Emergency Notification",
 
                   message:
-                    typeof data.message ===
-                    "string"
+                    typeof data.message === "string"
                       ? data.message
                       : "",
 
@@ -679,14 +1122,12 @@ export default function RedCrossTopbar({
                   ),
 
                   type:
-                    typeof data.type ===
-                    "string"
+                    typeof data.type === "string"
                       ? data.type
                       : undefined,
 
                   reportId:
-                    typeof data.reportId ===
-                    "string"
+                    typeof data.reportId === "string"
                       ? data.reportId
                       : undefined,
 
@@ -696,8 +1137,7 @@ export default function RedCrossTopbar({
                       | undefined,
 
                   priority:
-                    typeof data.priority ===
-                    "string"
+                    typeof data.priority === "string"
                       ? data.priority
                       : undefined,
 
@@ -719,36 +1159,27 @@ export default function RedCrossTopbar({
 
           setNotifications(
             (current) => {
-              const firestoreIds =
+              const firestoreReportIds =
                 new Set(
-                  loadedNotifications.map(
-                    (item) =>
-                      item.id
-                  )
+                  loadedNotifications
+                    .map(
+                      (item) =>
+                        item.reportId
+                    )
+                    .filter(
+                      Boolean
+                    )
                 );
 
-              /*
-               * Preserve locally-created incident
-               * alerts while they are not yet stored
-               * in notifications.
-               */
               const localIncidentNotifications =
                 current.filter(
                   (item) =>
                     item.source ===
                       "incident" &&
-                    !item.reportId
-                      ? true
-                      : item.source ===
-                          "incident" &&
-                        item.reportId &&
-                        !Array.from(
-                          firestoreIds
-                        ).some(
-                          (id) =>
-                            id ===
-                            item.reportId
-                        )
+                    item.reportId &&
+                    !firestoreReportIds.has(
+                      item.reportId
+                    )
                 );
 
               return [
@@ -785,163 +1216,9 @@ export default function RedCrossTopbar({
 
   /*
    * ============================================================
-   * REAL-TIME EMERGENCY REPORT LISTENER
-   *
-   * Citizen
-   *    ↓
-   * reports collection
-   *    ↓
-   * Firestore onSnapshot
-   *    ↓
-   * Red Cross EOC
+   * REAL-TIME REPORT LISTENER
    * ============================================================
    */
-
-  const playEmergencyAlert =
-    useCallback(() => {
-      try {
-        const AudioContextClass =
-          window.AudioContext ||
-          (
-            window as typeof window & {
-              webkitAudioContext?: typeof AudioContext;
-            }
-          ).webkitAudioContext;
-
-        if (!AudioContextClass) {
-          return;
-        }
-
-        if (
-          !audioContextRef.current
-        ) {
-          audioContextRef.current =
-            new AudioContextClass();
-        }
-
-        const context =
-          audioContextRef.current;
-
-        if (
-          context.state ===
-          "suspended"
-        ) {
-          void context.resume();
-        }
-
-        const oscillator =
-          context.createOscillator();
-
-        const gain =
-          context.createGain();
-
-        oscillator.type = "sine";
-
-        oscillator.frequency.setValueAtTime(
-          880,
-          context.currentTime
-        );
-
-        oscillator.frequency.setValueAtTime(
-          660,
-          context.currentTime +
-            0.18
-        );
-
-        oscillator.frequency.setValueAtTime(
-          880,
-          context.currentTime +
-            0.36
-        );
-
-        gain.gain.setValueAtTime(
-          0.0001,
-          context.currentTime
-        );
-
-        gain.gain.exponentialRampToValueAtTime(
-          0.25,
-          context.currentTime +
-            0.04
-        );
-
-        gain.gain.exponentialRampToValueAtTime(
-          0.0001,
-          context.currentTime +
-            0.55
-        );
-
-        oscillator.connect(
-          gain
-        );
-
-        gain.connect(
-          context.destination
-        );
-
-        oscillator.start();
-
-        oscillator.stop(
-          context.currentTime +
-            0.6
-        );
-      } catch (error) {
-        console.warn(
-          "Emergency alert sound unavailable:",
-          error
-        );
-      }
-    }, []);
-
-  const showBrowserNotification =
-    useCallback(
-      (incident: IncidentReport) => {
-        if (
-          typeof window ===
-          "undefined"
-        ) {
-          return;
-        }
-
-        if (
-          !("Notification" in window)
-        ) {
-          return;
-        }
-
-        if (
-          Notification.permission !==
-          "granted"
-        ) {
-          return;
-        }
-
-        const notification =
-          new Notification(
-            `🚨 ${incident.title}`,
-            {
-              body:
-                `${incident.priority ?? "HIGH"} priority emergency\n` +
-                incident.message,
-              tag:
-                `jamii-${incident.id}`,
-              requireInteraction:
-                true,
-            }
-          );
-
-        notification.onclick = () => {
-          window.focus();
-
-          navigate(
-            `/redcross/incidents?incident=${incident.id}`
-          );
-
-          notification.close();
-        };
-      },
-      [navigate]
-    );
 
   useEffect(() => {
     if (!currentUser?.uid) {
@@ -960,19 +1237,13 @@ export default function RedCrossTopbar({
         reportsRef,
         (snapshot) => {
           setLiveConnected(true);
+
           setLastSync(
             new Date()
           );
 
           snapshot.docChanges().forEach(
             (change) => {
-              /*
-               * Only newly created documents trigger
-               * the emergency alarm.
-               *
-               * Modified reports remain live but do
-               * not repeatedly alarm the operator.
-               */
               if (
                 change.type !==
                 "added"
@@ -986,13 +1257,34 @@ export default function RedCrossTopbar({
                   change.doc.data()
                 );
 
+              console.log(
+                "[Red Cross] New report received:",
+                incident
+              );
+
+              /*
+               * ROUTING
+               */
+
               if (
                 !isRelevantToRedCross(
                   incident
                 )
               ) {
+                console.log(
+                  "[Red Cross] Report not relevant:",
+                  incident.id,
+                  incident.type,
+                  incident.assignedRole,
+                  incident.redcrossRelevant
+                );
+
                 return;
               }
+
+              /*
+               * DUPLICATE PROTECTION
+               */
 
               if (
                 processedIncidents.current.has(
@@ -1002,50 +1294,78 @@ export default function RedCrossTopbar({
                 return;
               }
 
-              processedIncidents.current.add(
-                incident.id
-              );
+              /*
+               * IMPORTANT:
+               * Mark it processed only after
+               * routing has passed.
+               */
 
               const createdSeconds =
                 getTimestampSeconds(
                   incident.createdAt
                 );
 
+              /*
+               * Firebase serverTimestamp may
+               * initially be unresolved.
+               */
+
+              if (
+                createdSeconds <= 0
+              ) {
+                console.log(
+                  "[Red Cross] Waiting for resolved createdAt:",
+                  incident.id
+                );
+
+                return;
+              }
+
               const nowSeconds =
                 Math.floor(
                   Date.now() / 1000
                 );
-
-              /*
-               * Historical incidents should appear
-               * in the system but should not trigger
-               * emergency sounds when the dashboard
-               * first connects.
-               *
-               * If createdAt is missing, we do NOT
-               * automatically beep.
-               */
-              if (
-                createdSeconds <= 0
-              ) {
-                return;
-              }
 
               const age =
                 nowSeconds -
                 createdSeconds;
 
               const isRecent =
-                age >= 0 &&
-                age <= 120;
+                age >= -10 &&
+                age <= 300;
 
               if (!isRecent) {
+                console.log(
+                  "[Red Cross] Historical report:",
+                  incident.id,
+                  "age:",
+                  age
+                );
+
+                processedIncidents.current.add(
+                  incident.id
+                );
+
                 return;
               }
+
+              processedIncidents.current.add(
+                incident.id
+              );
+
+              /*
+               * ==================================================
+               * NEW EMERGENCY
+               * ==================================================
+               */
 
               setIncomingIncident(
                 incident
               );
+
+              /*
+               * ADD TO BELL
+               */
 
               setNotifications(
                 (current) => {
@@ -1062,24 +1382,37 @@ export default function RedCrossTopbar({
 
                   const notification: NotificationItem =
                     {
-                      id: `incident-${incident.id}`,
+                      id:
+                        `incident-${incident.id}`,
+
                       title:
                         `🚨 ${incident.title}`,
+
                       message:
                         incident.message ||
                         "New emergency incident received.",
+
                       read: false,
-                      type: "incident",
+
+                      type:
+                        incident.type ??
+                        "incident",
+
                       reportId:
                         incident.id,
+
                       createdAt:
                         incident.createdAt,
+
                       latitude:
                         incident.latitude,
+
                       longitude:
                         incident.longitude,
+
                       priority:
                         incident.priority,
+
                       source:
                         "incident",
                     };
@@ -1091,11 +1424,67 @@ export default function RedCrossTopbar({
                 }
               );
 
-              playEmergencyAlert();
+              /*
+               * ==================================================
+               * SOUND
+               * ==================================================
+               *
+               * If the operator has already interacted
+               * with the dashboard, this should play.
+               *
+               * If the browser still blocks audio,
+               * the console explains why.
+               */
 
-              showBrowserNotification(
-                incident
-              );
+              void playEmergencyAlert();
+
+              /*
+               * ==================================================
+               * BROWSER NOTIFICATION
+               * ==================================================
+               */
+
+              if (
+                typeof window !==
+                  "undefined" &&
+                "Notification" in window &&
+                Notification.permission ===
+                  "granted"
+              ) {
+                try {
+                  const browserNotification =
+                    new Notification(
+                      `🚨 ${incident.title}`,
+                      {
+                        body:
+                          `${incident.priority ?? "HIGH"} priority emergency\n` +
+                          incident.message,
+
+                        tag:
+                          `jamii-${incident.id}`,
+
+                        requireInteraction:
+                          true,
+                      }
+                    );
+
+                  browserNotification.onclick =
+                    () => {
+                      window.focus();
+
+                      navigate(
+                        `/redcross/incidents?incident=${incident.id}`
+                      );
+
+                      browserNotification.close();
+                    };
+                } catch (error) {
+                  console.warn(
+                    "[Red Cross] Browser notification failed:",
+                    error
+                  );
+                }
+              }
             }
           );
         },
@@ -1105,25 +1494,24 @@ export default function RedCrossTopbar({
             error
           );
 
-          setLiveConnected(
-            false
-          );
+          setLiveConnected(false);
         }
       );
 
     return () => {
       unsubscribe();
+
       setLiveConnected(false);
     };
   }, [
     currentUser?.uid,
     playEmergencyAlert,
-    showBrowserNotification,
+    navigate,
   ]);
 
   /*
    * ============================================================
-   * CLEAN UP AUDIO
+   * AUDIO CLEANUP
    * ============================================================
    */
 
@@ -1134,6 +1522,7 @@ export default function RedCrossTopbar({
 
       if (context) {
         void context.close();
+
         audioContextRef.current =
           null;
       }
@@ -1142,7 +1531,7 @@ export default function RedCrossTopbar({
 
   /*
    * ============================================================
-   * BROWSER NOTIFICATION PERMISSION
+   * BROWSER NOTIFICATIONS
    * ============================================================
    */
 
@@ -1158,13 +1547,16 @@ export default function RedCrossTopbar({
         await Notification.requestPermission();
 
       if (
-        permission === "granted"
+        permission ===
+        "granted"
       ) {
-        playEmergencyAlert();
+        await unlockAudio();
+
+        await playEmergencyAlert();
       }
     } catch (error) {
       console.error(
-        "Unable to request notification permission:",
+        "Unable to enable browser notifications:",
         error
       );
     }
@@ -1182,13 +1574,19 @@ export default function RedCrossTopbar({
     navigate(item.path);
 
     setSearch("");
-    setDesktopSearchOpen(false);
-    setMobileSearchOpen(false);
+
+    setDesktopSearchOpen(
+      false
+    );
+
+    setMobileSearchOpen(
+      false
+    );
   }
 
   /*
    * ============================================================
-   * NOTIFICATION ACTIONS
+   * NOTIFICATIONS
    * ============================================================
    */
 
@@ -1266,7 +1664,9 @@ export default function RedCrossTopbar({
   function openNotification(
     notification: NotificationItem
   ) {
-    setNotificationsOpen(false);
+    setNotificationsOpen(
+      false
+    );
 
     if (notification.reportId) {
       navigate(
@@ -1330,7 +1730,9 @@ export default function RedCrossTopbar({
     const incidentId =
       incomingIncident.id;
 
-    setIncomingIncident(null);
+    setIncomingIncident(
+      null
+    );
 
     navigate(
       `/redcross/incidents?incident=${incidentId}`
@@ -1391,9 +1793,13 @@ export default function RedCrossTopbar({
       {
         timeZone:
           "Africa/Nairobi",
+
         month: "short",
+
         day: "numeric",
+
         hour: "2-digit",
+
         minute: "2-digit",
       }
     );
@@ -1405,9 +1811,13 @@ export default function RedCrossTopbar({
       {
         timeZone:
           "Africa/Nairobi",
+
         hour: "2-digit",
+
         minute: "2-digit",
+
         second: "2-digit",
+
         hour12: false,
       }
     );
@@ -1480,6 +1890,45 @@ export default function RedCrossTopbar({
   return (
     <>
       {/* ======================================================
+          AUDIO ACTIVATION / STATUS
+          ====================================================== */}
+
+      {!audioReady && (
+        <div className="fixed bottom-4 left-4 z-[180] max-w-sm">
+          <div className="rounded-2xl border border-orange-300 bg-white p-4 shadow-2xl">
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-orange-100 text-orange-600">
+                <FaVolumeMute />
+              </div>
+
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-black text-slate-900">
+                  Emergency sound is locked
+                </p>
+
+                <p className="mt-1 text-xs leading-5 text-slate-500">
+                  Activate sound so incoming
+                  emergencies can trigger the
+                  EOC alarm.
+                </p>
+
+                <button
+                  type="button"
+                  onClick={
+                    testAlertSound
+                  }
+                  className="mt-3 inline-flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2.5 text-xs font-black text-white shadow-sm transition hover:bg-red-700"
+                >
+                  <FaPlay />
+                  ACTIVATE & TEST SOUND
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================
           INCOMING EMERGENCY ALERT
           ====================================================== */}
 
@@ -1551,6 +2000,27 @@ export default function RedCrossTopbar({
                 {incomingIncident.message}
               </p>
 
+              {incomingIncident.reporterName && (
+                <div className="mt-3 rounded-xl bg-slate-50 p-3">
+                  <p className="text-xs font-bold uppercase text-slate-400">
+                    Reported by
+                  </p>
+
+                  <p className="mt-1 text-sm font-bold text-slate-800">
+                    {incomingIncident.reporterName}
+                  </p>
+
+                  {incomingIncident.reporterPhone && (
+                    <p className="mt-1 text-xs font-semibold text-slate-500">
+                      📞{" "}
+                      {
+                        incomingIncident.reporterPhone
+                      }
+                    </p>
+                  )}
+                </div>
+              )}
+
               <div className="mt-4 rounded-xl bg-slate-50 p-3">
                 <div className="flex items-center gap-2 text-sm font-bold text-slate-800">
                   <FaMapMarkerAlt className="text-red-600" />
@@ -1561,15 +2031,24 @@ export default function RedCrossTopbar({
                     "number" &&
                 typeof incomingIncident.longitude ===
                     "number" ? (
-                  <p className="mt-1 text-xs text-slate-500">
-                    {incomingIncident.latitude.toFixed(
-                      6
+                  <>
+                    <p className="mt-1 text-xs text-slate-500">
+                      {incomingIncident.latitude.toFixed(
+                        6
+                      )}
+                      ,{" "}
+                      {incomingIncident.longitude.toFixed(
+                        6
+                      )}
+                    </p>
+
+                    {typeof incomingIncident.location ===
+                      "string" && (
+                      <p className="mt-1 text-xs font-semibold text-slate-600">
+                        {incomingIncident.location}
+                      </p>
                     )}
-                    ,{" "}
-                    {incomingIncident.longitude.toFixed(
-                      6
-                    )}
-                  </p>
+                  </>
                 ) : (
                   <p className="mt-1 text-xs text-amber-600">
                     GPS coordinates not
@@ -1704,6 +2183,31 @@ export default function RedCrossTopbar({
               </div>
             </div>
 
+            {/* SOUND STATUS */}
+
+            <button
+              type="button"
+              onClick={
+                testAlertSound
+              }
+              title={
+                audioReady
+                  ? "Test emergency alarm"
+                  : "Activate emergency alarm"
+              }
+              className={`hidden h-11 w-11 items-center justify-center rounded-xl transition lg:flex ${
+                audioReady
+                  ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
+                  : "bg-orange-100 text-orange-700 hover:bg-orange-200"
+              }`}
+            >
+              {audioReady ? (
+                <FaVolumeUp />
+              ) : (
+                <FaVolumeMute />
+              )}
+            </button>
+
             {/* NOTIFICATIONS */}
 
             <div className="relative">
@@ -1719,7 +2223,9 @@ export default function RedCrossTopbar({
                 className={`relative flex h-11 w-11 items-center justify-center rounded-xl transition ${
                   incomingIncident
                     ? "animate-pulse bg-red-100 text-red-700"
-                    : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                    : unreadCount > 0
+                      ? "bg-red-100 text-red-700"
+                      : "bg-slate-100 text-slate-700 hover:bg-slate-200"
                 }`}
               >
                 <FaBell />
@@ -1748,6 +2254,7 @@ export default function RedCrossTopbar({
                     </div>
 
                     <div className="flex items-center gap-2">
+
                       {unreadCount > 0 && (
                         <button
                           type="button"
@@ -1766,6 +2273,52 @@ export default function RedCrossTopbar({
                       </div>
                     </div>
                   </div>
+
+                  {/* AUDIO CONTROL */}
+
+                  <div className="border-b border-slate-100 bg-slate-50 p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2">
+                        <div
+                          className={`flex h-9 w-9 items-center justify-center rounded-lg ${
+                            audioReady
+                              ? "bg-emerald-100 text-emerald-700"
+                              : "bg-orange-100 text-orange-700"
+                          }`}
+                        >
+                          {audioReady ? (
+                            <FaVolumeUp />
+                          ) : (
+                            <FaVolumeMute />
+                          )}
+                        </div>
+
+                        <div>
+                          <p className="text-xs font-bold text-slate-800">
+                            Emergency sound
+                          </p>
+
+                          <p className="text-[10px] text-slate-500">
+                            {audioReady
+                              ? "Ready for incoming alerts"
+                              : "Activation required"}
+                          </p>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={
+                          testAlertSound
+                        }
+                        className="rounded-lg bg-red-600 px-3 py-2 text-[10px] font-black text-white hover:bg-red-700"
+                      >
+                        TEST SOUND
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* NETWORK STATUS */}
 
                   <div className="border-b border-slate-100 bg-slate-50 px-4 py-2">
                     <div className="flex items-center justify-between">
@@ -1788,6 +2341,8 @@ export default function RedCrossTopbar({
                       </span>
                     </div>
                   </div>
+
+                  {/* NOTIFICATION LIST */}
 
                   <div className="max-h-[440px] overflow-y-auto">
                     {notifications.length === 0 ? (
@@ -1827,11 +2382,13 @@ export default function RedCrossTopbar({
 
                               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-red-100 text-red-700">
                                 {notification.source ===
-                                "incident"
-                                  ? getIncidentIcon(
-                                      notification.type
-                                    )
-                                  : <FaFirstAid />}
+                                "incident" ? (
+                                  getIncidentIcon(
+                                    notification.type
+                                  )
+                                ) : (
+                                  <FaFirstAid />
+                                )}
                               </div>
 
                               <div className="min-w-0 flex-1">
@@ -1878,6 +2435,8 @@ export default function RedCrossTopbar({
                     )}
                   </div>
 
+                  {/* BROWSER ALERT BUTTON */}
+
                   <div className="border-t border-slate-100 p-3">
                     <button
                       type="button"
@@ -1886,14 +2445,14 @@ export default function RedCrossTopbar({
                       }
                       className="w-full rounded-xl bg-red-50 px-3 py-2.5 text-xs font-bold text-red-700 transition hover:bg-red-100"
                     >
-                      Enable browser emergency alerts
+                      🔔 Enable browser emergency alerts
                     </button>
                   </div>
                 </div>
               )}
             </div>
 
-            {/* LIVE NETWORK STATUS */}
+            {/* LIVE NETWORK */}
 
             <div
               className={`hidden items-center gap-2 rounded-xl px-3 py-2 lg:flex ${
@@ -1999,6 +2558,7 @@ export default function RedCrossTopbar({
                   setMobileSearchOpen(
                     false
                   );
+
                   setSearch("");
                 }}
                 aria-label="Close search"
