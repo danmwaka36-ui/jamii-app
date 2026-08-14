@@ -1,6 +1,10 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { addDoc, collection, serverTimestamp } from "firebase/firestore";
+import {
+  addDoc,
+  collection,
+  serverTimestamp,
+} from "firebase/firestore";
 
 import { db } from "../../firebase/firebase";
 import { useAuth } from "../../auth/AuthContext";
@@ -21,7 +25,8 @@ const emergencyTypes: EmergencyType[] = [
     responderLabel: "Fire & Rescue",
     icon: "🚒",
     redcrossRelevant: true,
-    description: "Fire incidents requiring rescue, first aid or humanitarian support.",
+    description:
+      "Fire incidents requiring rescue, first aid or humanitarian support.",
   },
   {
     label: "Medical",
@@ -29,7 +34,8 @@ const emergencyTypes: EmergencyType[] = [
     responderLabel: "Ambulance / Medical Response",
     icon: "🚑",
     redcrossRelevant: true,
-    description: "Medical emergencies, injuries and situations requiring emergency medical support.",
+    description:
+      "Medical emergencies, injuries and situations requiring emergency medical support.",
   },
   {
     label: "Police",
@@ -37,7 +43,8 @@ const emergencyTypes: EmergencyType[] = [
     responderLabel: "Police",
     icon: "🚔",
     redcrossRelevant: false,
-    description: "Crime, security threats and incidents requiring police intervention.",
+    description:
+      "Crime, security threats and incidents requiring police intervention.",
   },
   {
     label: "Flood",
@@ -45,7 +52,8 @@ const emergencyTypes: EmergencyType[] = [
     responderLabel: "County Emergency Response",
     icon: "🌊",
     redcrossRelevant: true,
-    description: "Flooding, displacement, rescue and humanitarian emergencies.",
+    description:
+      "Flooding, displacement, rescue and humanitarian emergencies.",
   },
   {
     label: "Accident",
@@ -53,7 +61,8 @@ const emergencyTypes: EmergencyType[] = [
     responderLabel: "Police / Emergency Response",
     icon: "🚗",
     redcrossRelevant: true,
-    description: "Road and other accidents requiring rescue, medical or humanitarian support.",
+    description:
+      "Road and other accidents requiring rescue, medical or humanitarian support.",
   },
   {
     label: "Community Alert",
@@ -61,7 +70,8 @@ const emergencyTypes: EmergencyType[] = [
     responderLabel: "Nyumba Kumi / Community Response",
     icon: "📢",
     redcrossRelevant: true,
-    description: "Community incidents that may require humanitarian or emergency support.",
+    description:
+      "Community incidents that may require humanitarian or emergency support.",
   },
 ];
 
@@ -85,13 +95,12 @@ export default function ReportEmergency() {
   const [loading, setLoading] = useState(false);
   const [gpsLoading, setGpsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
 
   const [coordinates, setCoordinates] = useState<{
     latitude: number;
     longitude: number;
   } | null>(null);
-
-  const [successMessage, setSuccessMessage] = useState("");
 
   function handleTypeSelect(item: EmergencyType) {
     setType(item.label);
@@ -198,13 +207,76 @@ export default function ReportEmergency() {
           : 4;
 
       /*
-       * IMPORTANT:
-       * The reports collection remains the single source of truth.
+       * IMPORTANT
        *
-       * redcrossRelevant determines whether Red Cross should receive
-       * the incident through its real-time listener.
+       * `reports` remains the single source of truth.
+       *
+       * Red Cross does NOT need a separate report collection.
+       * The Red Cross dashboard can listen to this collection
+       * in real time and filter:
+       *
+       * redcrossRelevant == true
+       *
+       * Security restrictions must additionally be enforced
+       * through Firebase Security Rules / backend authorization.
        */
+
       const reportData = {
+        // --------------------------------------------------
+        // INCIDENT IDENTITY
+        // --------------------------------------------------
+        incidentType: type,
+        type,
+
+        // --------------------------------------------------
+        // RESPONSE ROUTING
+        // --------------------------------------------------
+        assignedRole,
+        assignedTeam:
+          selectedEmergency?.responderLabel || assignedRole,
+
+        routing: {
+          primaryResponder: assignedRole,
+          primaryResponderLabel:
+            selectedEmergency?.responderLabel || assignedRole,
+        },
+
+        // --------------------------------------------------
+        // RED CROSS ROUTING
+        // --------------------------------------------------
+        redcrossRelevant,
+
+        redcross: {
+          relevant: redcrossRelevant,
+          notificationEligible: redcrossRelevant,
+        },
+
+        // --------------------------------------------------
+        // SEVERITY / PRIORITY
+        // --------------------------------------------------
+        severity,
+        priority,
+
+        // --------------------------------------------------
+        // INCIDENT DETAILS
+        // --------------------------------------------------
+        description: description.trim(),
+
+        location: location.trim(),
+
+        coordinates: {
+          latitude: coordinates.latitude,
+          longitude: coordinates.longitude,
+        },
+
+        gps: {
+          latitude: coordinates.latitude,
+          longitude: coordinates.longitude,
+        },
+
+        // --------------------------------------------------
+        // REPORTER
+        // --------------------------------------------------
         reporterId: currentUser.uid,
 
         reporterName:
@@ -218,55 +290,28 @@ export default function ReportEmergency() {
 
         phone: phone.trim(),
 
-        type,
-
-        assignedRole,
-
-        assignedTeam: selectedEmergency?.responderLabel || assignedRole,
-
-        redcrossRelevant,
-
-        severity,
-
-        priority,
-
-        description: description.trim(),
-
-        location: location.trim(),
-
-        coordinates: {
-          latitude: coordinates.latitude,
-          longitude: coordinates.longitude,
-        },
-
-        /*
-         * This gives the response teams a consistent status lifecycle.
-         */
+        // --------------------------------------------------
+        // INCIDENT LIFECYCLE
+        // --------------------------------------------------
         status: "Pending",
 
         acknowledged: false,
-
         acknowledgedAt: null,
-
         acknowledgedBy: null,
 
         assignedResponderId: null,
-
         assignedResponderName: null,
 
         dispatchedAt: null,
-
         resolvedAt: null,
 
-        /*
-         * Useful for incident tracing and audit.
-         */
+        // --------------------------------------------------
+        // SOURCE / AUDIT
+        // --------------------------------------------------
         source: "Citizen Dashboard",
-
         sourceChannel: "web",
 
         createdAt: serverTimestamp(),
-
         updatedAt: serverTimestamp(),
       };
 
@@ -275,20 +320,39 @@ export default function ReportEmergency() {
         reportData
       );
 
-      console.log("Emergency report created:", reportRef.id);
+      console.log(
+        "🚨 Emergency report created:",
+        reportRef.id
+      );
 
       setSuccessMessage(
         `Emergency submitted successfully. Reference: ${reportRef.id}`
       );
 
       /*
-       * Give the user a short confirmation before navigating.
+       * Clear the form after successful submission.
+       */
+      setType("");
+      setAssignedRole("");
+      setSeverity("");
+      setDescription("");
+      setLocation("");
+      setPhone("");
+      setCoordinates(null);
+      setRedcrossRelevant(false);
+
+      /*
+       * Give the citizen a short confirmation before
+       * returning to their reports.
        */
       setTimeout(() => {
         navigate("/dashboard/reports");
-      }, 1200);
+      }, 1500);
     } catch (err) {
-      console.error("Emergency submission error:", err);
+      console.error(
+        "🚨 Emergency submission error:",
+        err
+      );
 
       setError(
         "Failed to submit emergency report. Please check your connection and try again."
@@ -304,15 +368,24 @@ export default function ReportEmergency() {
 
   return (
     <div className="space-y-6">
-      {/* HEADER */}
-      <div>
-        <h1 className="text-3xl font-extrabold text-slate-950">
-          🚨 Report Emergency
-        </h1>
 
-        <p className="mt-2 text-slate-600">
-          Submit an emergency report and Jamii will route it to the
-          appropriate response teams.
+      {/* ==================================================
+          HEADER
+      ================================================== */}
+      <div>
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="text-3xl font-extrabold text-slate-950">
+            🚨 Report Emergency
+          </h1>
+
+          <span className="rounded-full bg-red-100 px-3 py-1 text-xs font-bold uppercase tracking-wide text-red-700">
+            Live Response System
+          </span>
+        </div>
+
+        <p className="mt-2 max-w-3xl text-slate-600">
+          Submit an emergency report and Jamii will route the
+          incident to the appropriate response teams in real time.
         </p>
       </div>
 
@@ -320,9 +393,14 @@ export default function ReportEmergency() {
         onSubmit={handleSubmit}
         className="grid gap-6 xl:grid-cols-[1fr_360px]"
       >
+
         <div className="space-y-6">
-          {/* EMERGENCY TYPE */}
+
+          {/* ==================================================
+              EMERGENCY TYPE
+          ================================================== */}
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+
             <h2 className="text-xl font-bold text-slate-900">
               Select Emergency Type
             </h2>
@@ -331,7 +409,8 @@ export default function ReportEmergency() {
               Select the type that best describes the emergency.
             </p>
 
-            <div className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+
               {emergencyTypes.map((item) => (
                 <button
                   key={item.label}
@@ -344,13 +423,17 @@ export default function ReportEmergency() {
                   }`}
                 >
                   <div className="flex items-center justify-between">
-                    <div className="text-3xl">{item.icon}</div>
+
+                    <div className="text-3xl">
+                      {item.icon}
+                    </div>
 
                     {item.redcrossRelevant && (
                       <span className="rounded-full bg-red-100 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-red-700">
                         Red Cross
                       </span>
                     )}
+
                   </div>
 
                   <p className="mt-3 font-bold text-slate-900">
@@ -358,30 +441,42 @@ export default function ReportEmergency() {
                   </p>
 
                   <p className="mt-1 text-sm font-semibold text-blue-700">
-                    Routed to {item.responderLabel}
+                    {item.responderLabel}
                   </p>
 
                   <p className="mt-2 text-xs leading-5 text-slate-500">
                     {item.description}
                   </p>
+
+                  {type === item.label && (
+                    <div className="mt-4 rounded-lg bg-red-600 px-3 py-2 text-center text-xs font-bold text-white">
+                      ✓ SELECTED
+                    </div>
+                  )}
                 </button>
               ))}
+
             </div>
           </div>
 
-          {/* EMERGENCY DETAILS */}
+          {/* ==================================================
+              EMERGENCY DETAILS
+          ================================================== */}
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+
             <h2 className="text-xl font-bold text-slate-900">
               Emergency Details
             </h2>
 
             {/* SEVERITY */}
             <div className="mt-6">
+
               <label className="text-sm font-semibold text-slate-700">
                 Severity Level
               </label>
 
-              <div className="mt-3 grid gap-3 md:grid-cols-4">
+              <div className="mt-3 grid gap-3 sm:grid-cols-2 md:grid-cols-4">
+
                 {severityLevels.map((item) => (
                   <button
                     key={item}
@@ -399,63 +494,81 @@ export default function ReportEmergency() {
                     {item}
                   </button>
                 ))}
+
               </div>
+
             </div>
 
             {/* DESCRIPTION */}
             <div className="mt-5">
+
               <label className="text-sm font-semibold text-slate-700">
                 Description
               </label>
 
               <textarea
                 value={description}
-                onChange={(e) => setDescription(e.target.value)}
+                onChange={(e) =>
+                  setDescription(e.target.value)
+                }
                 rows={6}
                 placeholder="Describe what happened, number of people affected, injuries, hazards or any other useful information..."
                 className="mt-2 w-full rounded-xl border border-slate-200 p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                 required
               />
+
             </div>
 
             {/* PHONE */}
             <div className="mt-5">
+
               <label className="text-sm font-semibold text-slate-700">
                 Contact Phone Number
               </label>
 
               <input
                 value={phone}
-                onChange={(e) => setPhone(e.target.value)}
+                onChange={(e) =>
+                  setPhone(e.target.value)
+                }
                 placeholder="+254 7XX XXX XXX"
                 className="mt-2 w-full rounded-xl border border-slate-200 p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                 required
               />
+
             </div>
+
           </div>
 
-          {/* LOCATION */}
+          {/* ==================================================
+              LOCATION
+          ================================================== */}
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+
             <h2 className="text-xl font-bold text-slate-900">
               Location Information
             </h2>
 
             <p className="mt-1 text-sm text-slate-500">
-              Accurate location helps response teams trace and reach the
-              incident faster.
+              Accurate location helps response teams trace and
+              reach the incident faster.
             </p>
 
             <div className="mt-5">
+
               <label className="text-sm font-semibold text-slate-700">
                 Location / Landmark
               </label>
 
               <input
                 value={location}
-                onChange={(e) => setLocation(e.target.value)}
+                onChange={(e) =>
+                  setLocation(e.target.value)
+                }
                 placeholder="Example: Bamburi, near Naivas"
                 className="mt-2 w-full rounded-xl border border-slate-200 p-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
               />
+
             </div>
 
             <button
@@ -471,16 +584,19 @@ export default function ReportEmergency() {
 
             {coordinates && (
               <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+
                 <p className="text-sm font-bold text-emerald-800">
                   ✓ GPS location captured
                 </p>
 
                 <p className="mt-1 text-xs text-emerald-700">
-                  Latitude: {coordinates.latitude.toFixed(6)}
+                  Latitude:{" "}
+                  {coordinates.latitude.toFixed(6)}
                 </p>
 
                 <p className="text-xs text-emerald-700">
-                  Longitude: {coordinates.longitude.toFixed(6)}
+                  Longitude:{" "}
+                  {coordinates.longitude.toFixed(6)}
                 </p>
 
                 <a
@@ -491,68 +607,107 @@ export default function ReportEmergency() {
                 >
                   Open location on Google Maps →
                 </a>
+
               </div>
             )}
+
           </div>
 
-          {/* ERROR */}
+          {/* ==================================================
+              ERROR
+          ================================================== */}
           {error && (
             <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700">
-              <p className="font-semibold">Unable to submit report</p>
 
-              <p className="mt-1 text-sm">{error}</p>
+              <p className="font-semibold">
+                Unable to submit report
+              </p>
+
+              <p className="mt-1 text-sm">
+                {error}
+              </p>
+
             </div>
           )}
 
-          {/* SUCCESS */}
+          {/* ==================================================
+              SUCCESS
+          ================================================== */}
           {successMessage && (
             <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-700">
-              <p className="font-bold">✓ Emergency submitted</p>
 
-              <p className="mt-1 text-sm">{successMessage}</p>
+              <p className="font-bold">
+                ✓ Emergency submitted
+              </p>
+
+              <p className="mt-1 text-sm">
+                {successMessage}
+              </p>
+
             </div>
           )}
 
-          {/* SUBMIT */}
+          {/* ==================================================
+              SUBMIT
+          ================================================== */}
           <button
             type="submit"
             disabled={loading}
             className="w-full rounded-xl bg-red-600 px-6 py-4 font-bold text-white shadow-sm transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {loading
-              ? "Submitting Emergency..."
+              ? "🚨 Submitting Emergency..."
               : "🚨 Submit Emergency Report"}
           </button>
+
         </div>
 
-        {/* RIGHT SIDEBAR */}
+        {/* ==================================================
+            RIGHT SIDEBAR
+        ================================================== */}
         <aside className="space-y-5">
+
           {/* NOTICE */}
           <div className="rounded-2xl border border-red-100 bg-red-50 p-6">
+
             <h2 className="text-xl font-bold text-red-700">
               Emergency Notice
             </h2>
 
             <p className="mt-3 text-sm leading-6 text-red-700">
-              For life-threatening emergencies, call emergency services
-              immediately while submitting this report.
+              For life-threatening emergencies, call emergency
+              services immediately while submitting this report.
             </p>
+
           </div>
 
-          {/* ROUTING */}
+          {/* LIVE ROUTING */}
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h2 className="text-xl font-bold text-slate-900">
-              Report Routing
-            </h2>
+
+            <div className="flex items-center justify-between">
+
+              <h2 className="text-xl font-bold text-slate-900">
+                Report Routing
+              </h2>
+
+              <span className="flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-1 text-[10px] font-bold text-emerald-700">
+                <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                LIVE
+              </span>
+
+            </div>
 
             <div className="mt-4 space-y-4 rounded-xl bg-slate-50 p-4">
+
               <div>
                 <p className="text-sm text-slate-500">
                   Selected Type
                 </p>
 
                 <p className="font-bold text-slate-900">
-                  {type || "Not selected"}
+                  {selectedEmergency
+                    ? `${selectedEmergency.icon} ${selectedEmergency.label}`
+                    : "Not selected"}
                 </p>
               </div>
 
@@ -580,7 +735,7 @@ export default function ReportEmergency() {
                   }`}
                 >
                   {redcrossRelevant
-                    ? "✓ Red Cross will receive this incident"
+                    ? "✓ Eligible for Red Cross real-time alert"
                     : "Not routed to Red Cross"}
                 </p>
               </div>
@@ -597,6 +752,18 @@ export default function ReportEmergency() {
 
               <div>
                 <p className="text-sm text-slate-500">
+                  GPS
+                </p>
+
+                <p className="font-bold text-slate-900">
+                  {coordinates
+                    ? "✓ Coordinates captured"
+                    : "Not captured"}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-sm text-slate-500">
                   Current Status
                 </p>
 
@@ -604,23 +771,35 @@ export default function ReportEmergency() {
                   Pending
                 </p>
               </div>
+
             </div>
+
           </div>
 
-          {/* RED CROSS INFO */}
+          {/* HUMANITARIAN RESPONSE */}
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h2 className="font-bold text-slate-900">
-              Humanitarian Response
-            </h2>
 
-            <p className="mt-2 text-sm leading-6 text-slate-600">
-              Incidents involving medical emergencies, floods, accidents,
-              fires and community emergencies may also be made available
-              to authorized Red Cross responders for humanitarian
-              assistance.
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-100 text-xl">
+                ❤️
+              </div>
+
+              <h2 className="font-bold text-slate-900">
+                Humanitarian Response
+              </h2>
+            </div>
+
+            <p className="mt-3 text-sm leading-6 text-slate-600">
+              Incidents involving medical emergencies, floods,
+              accidents, fires and community emergencies may also
+              be made available to authorized Red Cross responders
+              for humanitarian assistance.
             </p>
+
           </div>
+
         </aside>
+
       </form>
     </div>
   );
