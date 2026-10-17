@@ -1,11 +1,12 @@
 import {
   FaBars,
-  FaBell,
   FaCalendarAlt,
   FaMapMarkerAlt,
   FaSearch,
   FaShieldAlt,
 } from "react-icons/fa";
+
+import NotificationBell from "../NotificationBell";
 
 type PoliceTopbarProps = {
   onMenuClick: () => void;
@@ -84,17 +85,7 @@ export default function PoliceTopbar({
 
           </div>
 
-          {/* Notifications */}
-
-          <button className="relative rounded-xl bg-slate-100 p-3 hover:bg-slate-200">
-
-            <FaBell className="text-lg text-slate-700" />
-
-            <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-600 text-[10px] font-bold text-white">
-              12
-            </span>
-
-          </button>
+          <NotificationBell />
 
           {/* Live Status */}
 

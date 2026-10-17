@@ -7,7 +7,7 @@ import {
 import { useState } from "react";
 
 import AdminSearch from "./search/AdminSearch";
-import NotificationBell from "./notifications/NotificationBell";
+import NotificationBell from "../NotificationBell";
 
 type AdminTopbarProps = {
   onMenuClick: () => void;

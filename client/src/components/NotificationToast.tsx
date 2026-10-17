@@ -1,35 +1,87 @@
-// client/src/components/NotificationToast.tsx
-import React from "react";
+import { useEffect } from "react";
+import type { CSSProperties } from "react";
+import { useNotifications } from "../notifications/NotificationsContext";
 
-export default function NotificationToast({
-  title,
-  message,
-  onView,
-  onDismiss,
-  severity = "critical",
-}: {
-  title: string;
-  message: string;
-  onView?: () => void;
-  onDismiss?: () => void;
-  severity?: "critical" | "high" | "medium" | "info";
-}) {
-  const color = severity === "critical" ? "bg-red-600 text-white" : severity === "high" ? "bg-orange-600 text-white" : severity === "medium" ? "bg-amber-500 text-slate-950" : "bg-slate-800 text-white";
+export default function NotificationToast() {
+  const { latestToast, dismissToast, setPanelOpen } = useNotifications();
+
+  useEffect(() => {
+    if (!latestToast) return;
+
+    const timer = window.setTimeout(dismissToast, 7000);
+    return () => window.clearTimeout(timer);
+  }, [latestToast, dismissToast]);
+
+  if (!latestToast) return null;
+
   return (
-    <div className={`${color} fixed right-4 top-24 z-[999] w-[calc(100vw-2rem)] max-w-md overflow-hidden rounded-2xl shadow-2xl`} role="status" aria-live="polite">
-      <div className="p-3">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0 flex-1">
-            <p className="font-extrabold">{title}</p>
-            <p className="mt-1 text-sm opacity-90">{message}</p>
-          </div>
-          <div className="flex shrink-0 items-center gap-2">
-            {onView && <button onClick={onView} className="rounded-xl bg-white/20 px-3 py-2 text-xs font-black">View</button>}
-            <button onClick={onDismiss} className="rounded-xl bg-white/10 px-3 py-2 text-xs">Dismiss</button>
-          </div>
+    <aside role="status" aria-live="polite" style={toastStyle}>
+      <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+        <span aria-hidden="true" style={{ fontSize: 22 }}>🔔</span>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <strong style={{ display: "block", fontSize: 14 }}>
+            {latestToast.title}
+          </strong>
+          <p style={{
+            margin: "5px 0 10px",
+            fontSize: 13,
+            lineHeight: 1.45,
+            overflowWrap: "anywhere",
+          }}>
+            {latestToast.message}
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              setPanelOpen(true);
+              dismissToast();
+            }}
+            style={actionStyle}
+          >
+            Open notifications
+          </button>
         </div>
+        <button
+          type="button"
+          aria-label="Dismiss notification"
+          onClick={dismissToast}
+          style={closeStyle}
+        >
+          ✕
+        </button>
       </div>
-      <style>{`@media (prefers-reduced-motion: reduce) { .animate-toast { animation: none !important; } }`}</style>
-    </div>
+    </aside>
   );
 }
+
+const toastStyle: CSSProperties = {
+  position: "fixed",
+  right: 16,
+  bottom: 18,
+  zIndex: 10002,
+  width: "min(390px, calc(100vw - 24px))",
+  boxSizing: "border-box",
+  padding: 16,
+  borderRadius: 15,
+  border: "1px solid #dbe5dd",
+  background: "#fff",
+  color: "#17231c",
+  boxShadow: "0 15px 45px rgba(13, 45, 27, .22)",
+};
+
+const actionStyle: CSSProperties = {
+  border: 0,
+  borderRadius: 8,
+  padding: "8px 11px",
+  background: "#176b36",
+  color: "#fff",
+  fontWeight: 600,
+  cursor: "pointer",
+};
+
+const closeStyle: CSSProperties = {
+  border: 0,
+  background: "transparent",
+  color: "#647568",
+  cursor: "pointer",
+};
