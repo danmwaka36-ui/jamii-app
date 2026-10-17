@@ -333,6 +333,12 @@ export async function playEmergencySound() {
   }
 }
 
+/**
+ * subscribeToForegroundMessages
+ *
+ * Forward raw payloads to the caller WITHOUT automatically playing sound or showing notifications.
+ * The provider decides playback and OS notifications to enable deduping and initial-snapshot suppression.
+ */
 export async function subscribeToForegroundMessages(
   callback?: (payload: MessagePayload) => void
 ) {
@@ -342,30 +348,7 @@ export async function subscribeToForegroundMessages(
     return () => undefined;
   }
 
-  return onMessage(messaging, async (payload) => {
-    console.log("Foreground emergency notification:", payload);
-
-    await playEmergencySound();
-
-    const title =
-      payload.notification?.title ||
-      payload.data?.title ||
-      "New Jamii Emergency";
-
-    const body =
-      payload.notification?.body ||
-      payload.data?.body ||
-      "A new emergency report requires attention.";
-
-    await showLocalNotification(title, {
-      body,
-      data: payload.data,
-      tag:
-        payload.data?.reportId ||
-        payload.messageId ||
-        "jamii-emergency",
-    });
-
+  return onMessage(messaging, (payload) => {
     callback?.(payload);
   });
 }
